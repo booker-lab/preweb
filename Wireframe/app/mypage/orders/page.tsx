@@ -159,7 +159,10 @@ export default function OrdersPage() {
             {/* Date Header */}
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-bold text-foreground">{date}</h2>
-              <button className="flex items-center gap-0.5 text-xs text-primary">
+              <button
+                onClick={() => router.push(`/mypage/orders/${orders[0].id}`)}
+                className="flex items-center gap-0.5 text-xs text-primary"
+              >
                 <span>주문 상세 보기</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>

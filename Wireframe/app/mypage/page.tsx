@@ -8,7 +8,7 @@ import {
   Package,
   Heart,
   MapPin,
-  Bell,
+  Star,
   LogOut,
   MessageCircle,
   Phone,
@@ -53,7 +53,7 @@ const menuItems = [
   { label: "주문 내역",   icon: Package, href: "/mypage/orders" },
   { label: "찜 목록",    icon: Heart,   href: "/mypage/wishlist" },
   { label: "배송지 관리", icon: MapPin,  href: "/mypage/addresses" },
-  { label: "알림 설정",  icon: Bell,    href: "/mypage/notifications" },
+  { label: "후기",       icon: Star,    href: "/mypage/reviews" },
 ]
 
 const supportItems = [
@@ -98,7 +98,10 @@ export default function MyPage() {
                   <p className="text-base font-bold text-foreground">{mockUser.name}</p>
                   <p className="text-sm text-muted-foreground">{mockUser.phone}</p>
                 </div>
-                <button className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                <button
+                  onClick={() => router.push("/mypage/profile")}
+                  className="flex items-center gap-0.5 text-xs text-muted-foreground"
+                >
                   <span>정보 수정</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>

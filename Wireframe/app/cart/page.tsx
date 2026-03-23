@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Home, Grid3X3, ShoppingCart, User, Heart, ArrowLeft, X, Minus, Plus, ChevronRight, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/lib/store"
@@ -79,6 +80,7 @@ const initialCart: CartItem[] = [
 ]
 
 export default function CartPage() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<"cart" | "wishlist">("cart")
   const [selectedItems, setSelectedItems] = useState<number[]>([])
   const [cart, setCart] = useState<CartItem[]>(initialCart)
@@ -418,7 +420,10 @@ export default function CartPage() {
               {(selectedItems.length > 0 ? selectedTotal : cartTotal).toLocaleString()}원
             </span>
           </div>
-          <button className="w-full rounded-xl bg-primary py-3.5 text-center font-bold text-primary-foreground">
+          <button
+            onClick={() => router.push("/checkout")}
+            className="w-full rounded-xl bg-primary py-3.5 text-center font-bold text-primary-foreground"
+          >
             구매하기 ({selectedItems.length > 0 ? selectedItems.length : cart.length})
           </button>
         </div>

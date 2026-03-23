@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { Home, Grid3X3, ShoppingCart, User, ArrowLeft, Heart, ChevronDown, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/lib/store"
@@ -93,6 +93,7 @@ export default function ProductListingPage() {
     }
   }, [category, color, sortOption])
 
+  const router = useRouter()
   const headerTitle = color ? `${category} · ${color}` : `${category} · 전체`
 
   return (
@@ -151,7 +152,8 @@ export default function ProductListingPage() {
           {filteredProducts.map((product) => (
             <div
               key={product.id}
-              className="overflow-hidden rounded-xl bg-card shadow-sm"
+              className="overflow-hidden rounded-xl bg-card shadow-sm cursor-pointer"
+              onClick={() => router.push(product.isGroupBuy ? `/groupbuy/${product.id}` : `/product/${product.id}`)}
             >
               <div className="relative aspect-square bg-muted">
                 {/* Category Badge */}
