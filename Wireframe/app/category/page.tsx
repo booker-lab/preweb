@@ -220,7 +220,8 @@ export default function CategoryPage() {
             {popularProducts.map((product) => (
               <div
                 key={product.id}
-                className="overflow-hidden rounded-xl bg-card shadow-sm"
+                className="overflow-hidden rounded-xl bg-card shadow-sm cursor-pointer"
+                onClick={() => window.location.href = `/product/${product.id}`}
               >
                 <div className="relative aspect-square bg-muted">
                   <span className="absolute left-1.5 top-1.5 rounded-md bg-destructive px-1.5 py-0.5 text-xs font-bold text-destructive-foreground">
@@ -249,8 +250,12 @@ export default function CategoryPage() {
                 key={product.id}
                 className={cn(
                   "overflow-hidden rounded-xl bg-card shadow-sm",
-                  product.isSoldOut && "opacity-70"
+                  product.isSoldOut ? "opacity-70" : "cursor-pointer"
                 )}
+                onClick={() => {
+                  if (product.isSoldOut) return
+                  window.location.href = product.isGroupBuy ? `/groupbuy/${product.id}` : `/product/${product.id}`
+                }}
               >
                 <div className={cn(
                   "relative aspect-square bg-muted",

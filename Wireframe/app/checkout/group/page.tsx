@@ -50,12 +50,11 @@ const mockProduct = {
   },
 }
 
-// Payment methods
+// Payment methods — 설계 문서(IA) 확정 수단 (무통장 미지원)
 const paymentMethods = [
-  { id: "card", name: "신용/체크카드" },
   { id: "kakao", name: "카카오페이" },
-  { id: "toss", name: "토스페이" },
-  { id: "bank", name: "계좌이체" },
+  { id: "naver", name: "네이버페이" },
+  { id: "card",  name: "신용/체크카드" },
 ]
 
 // Delivery memos

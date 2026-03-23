@@ -9,40 +9,44 @@ import {
   Package,
 } from "lucide-react"
 
+// 주문 상태 — 설계 문서(IA) 확정 코드 기준
 const orderStatuses = {
-  PENDING:      { label: "결제대기",  color: "bg-muted text-muted-foreground" },
-  CONFIRMED:    { label: "결제완료",  color: "bg-primary/10 text-primary" },
-  PREPARING:    { label: "배송준비",  color: "bg-amber-100 text-amber-700" },
-  SHIPPED:      { label: "배송시작",  color: "bg-blue-100 text-blue-700" },
-  IN_TRANSIT:   { label: "배송중",    color: "bg-blue-100 text-blue-700" },
-  DELIVERED:    { label: "배송완료",  color: "bg-primary/10 text-primary" },
-  PICKUP_READY: { label: "거점도착",  color: "bg-amber-100 text-amber-700" },
-  CANCELLED:    { label: "취소완료",  color: "bg-destructive/10 text-destructive" },
+  // 내부 처리 상태 (소비자 미노출 — Portone webhook 수신 전)
+  PENDING:     { label: "결제 처리 중", color: "bg-muted text-muted-foreground" },
+  RECRUITING:  { label: "모집 중",     color: "bg-violet-100 text-violet-700" },
+  CONFIRMED:   { label: "주문 확정",   color: "bg-primary/10 text-primary" },
+  ACCEPTED:    { label: "결제 완료",   color: "bg-primary/10 text-primary" },
+  PREPARING:   { label: "상품 준비 중", color: "bg-amber-100 text-amber-700" },
+  DELIVERING:  { label: "배송 중",     color: "bg-blue-100 text-blue-700" },
+  HUB_ARRIVED: { label: "거점 도착",   color: "bg-amber-100 text-amber-700" },
+  PICKED_UP:   { label: "픽업 완료",   color: "bg-primary/10 text-primary" },
+  DELIVERED:   { label: "배송 완료",   color: "bg-primary/10 text-primary" },
+  REVIEWED:    { label: "구매 확정",   color: "bg-muted text-muted-foreground" },
+  CANCELLED:   { label: "주문 취소",   color: "bg-destructive/10 text-destructive" },
 }
 
 type OrderStatus = keyof typeof orderStatuses
 
 const deliverySteps = [
-  { key: "CONFIRMED",  label: "결제완료" },
-  { key: "PREPARING",  label: "배송준비" },
-  { key: "SHIPPED",    label: "배송시작" },
-  { key: "IN_TRANSIT", label: "배송중" },
-  { key: "DELIVERED",  label: "배송완료" },
+  { key: "ACCEPTED",   label: "결제 완료" },
+  { key: "PREPARING",  label: "상품 준비 중" },
+  { key: "DELIVERING", label: "배송 중" },
+  { key: "DELIVERED",  label: "배송 완료" },
 ]
 
 const pickupDeliverySteps = [
-  { key: "CONFIRMED",    label: "결제완료" },
-  { key: "PREPARING",    label: "배송준비" },
-  { key: "SHIPPED",      label: "배송시작" },
-  { key: "PICKUP_READY", label: "거점도착" },
-  { key: "DELIVERED",    label: "수령완료" },
+  { key: "ACCEPTED",    label: "결제 완료" },
+  { key: "PREPARING",   label: "상품 준비 중" },
+  { key: "DELIVERING",  label: "배송 중" },
+  { key: "HUB_ARRIVED", label: "거점 도착" },
+  { key: "PICKED_UP",   label: "픽업 완료" },
 ]
 
 const mockOrders = [
   {
     id: "ORD20240323001",
     date: "2024.03.23 14:30",
-    status: "IN_TRANSIT" as OrderStatus,
+    status: "DELIVERING" as OrderStatus,
     deliveryType: "direct",
     expectedDate: "3월 25일",
     items: [
@@ -71,7 +75,7 @@ const mockOrders = [
   {
     id: "ORD20240322001",
     date: "2024.03.22 11:10",
-    status: "PICKUP_READY" as OrderStatus,
+    status: "HUB_ARRIVED" as OrderStatus,
     deliveryType: "pickup",
     pickupCode: "123456",
     pickupLocation: "강남역 2번출구 픽업존",
@@ -101,7 +105,7 @@ const mockOrders = [
   {
     id: "ORD20240320001",
     date: "2024.03.20 09:45",
-    status: "CONFIRMED" as OrderStatus,
+    status: "ACCEPTED" as OrderStatus,
     deliveryType: "courier",
     expectedDate: "3월 24일",
     items: [
@@ -225,7 +229,7 @@ export default function OrderDetailPage() {
           </div>
 
           {/* 픽업 코드 */}
-          {isPickup && order.status === "PICKUP_READY" && "pickupCode" in order && (
+          {isPickup && order.status === "HUB_ARRIVED" && "pickupCode" in order && (
             <div className="bg-primary/10 rounded-xl p-3 mb-4">
               <div className="flex items-center gap-2 mb-1">
                 <MapPin className="w-4 h-4 text-primary" />
@@ -255,7 +259,7 @@ export default function OrderDetailPage() {
           ))}
 
           {/* 배송 진행 바 */}
-          {order.status !== "CANCELLED" && order.status !== "PENDING" && (
+          {order.status !== "CANCELLED" && order.status !== "RECRUITING" && (
             <div className="mb-2">
               <div className="flex items-start justify-between mb-2">
                 {steps.map((step, index) => {
@@ -267,9 +271,9 @@ export default function OrderDetailPage() {
                         isCompleted ? "bg-primary" : "bg-muted"
                       }`}>
                         {isCompleted ? (
-                          isCurrent && step.key === "IN_TRANSIT" ? (
+                          isCurrent && step.key === "DELIVERING" ? (
                             <Truck className="w-3.5 h-3.5 text-primary-foreground" />
-                          ) : isCurrent && step.key === "PICKUP_READY" ? (
+                          ) : isCurrent && step.key === "HUB_ARRIVED" ? (
                             <Package className="w-3.5 h-3.5 text-primary-foreground" />
                           ) : (
                             <Check className="w-3.5 h-3.5 text-primary-foreground" />
@@ -294,6 +298,21 @@ export default function OrderDetailPage() {
                   style={{ width: `${(currentStepIndex / (steps.length - 1)) * 100}%` }}
                 />
               </div>
+            </div>
+          )}
+
+          {/* 구매 확정 / 후기 작성 버튼 (DELIVERED 또는 PICKED_UP 상태) */}
+          {(order.status === "DELIVERED" || order.status === "PICKED_UP") && (
+            <div className="flex gap-2 mt-1">
+              <button className="flex-1 h-10 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:opacity-90 transition-opacity">
+                구매 확정
+              </button>
+              <button
+                onClick={() => router.push("/mypage/reviews")}
+                className="flex-1 h-10 border border-primary text-primary rounded-xl text-sm font-medium hover:bg-primary/5 transition-colors"
+              >
+                후기 작성
+              </button>
             </div>
           )}
 

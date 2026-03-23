@@ -68,12 +68,11 @@ const deliveryMethods = [
   },
 ]
 
-// Payment methods
+// Payment methods — 설계 문서(IA) 확정 수단 (무통장 미지원)
 const paymentMethods = [
-  { id: "card", name: "신용/체크카드" },
   { id: "kakao", name: "카카오페이" },
-  { id: "toss", name: "토스페이" },
-  { id: "bank", name: "계좌이체" },
+  { id: "naver", name: "네이버페이" },
+  { id: "card",  name: "신용/체크카드" },
 ]
 
 // Delivery memos
@@ -119,7 +118,9 @@ export default function CheckoutPage() {
   const [selectedDelivery, setSelectedDelivery] = useState("")
   const [selectedPayment, setSelectedPayment] = useState("")
   const [agreedToTerms, setAgreedToTerms] = useState(false)
-  
+  // 와이어프레임용 기상 조건 제한 토글
+  const [weatherRestricted, setWeatherRestricted] = useState(false)
+
   const dateOptions = useMemo(() => generateDateOptions(), [])
   const hasAddress = !!mockAddress
   const isMetro = mockAddress?.isMetro ?? false
@@ -158,9 +159,23 @@ export default function CheckoutPage() {
           <button onClick={() => router.back()} className="p-1 -ml-1">
             <ChevronLeft className="w-6 h-6 text-foreground" />
           </button>
-          <h1 className="flex-1 text-center text-base font-bold text-foreground pr-6">
+          <h1 className="flex-1 text-center text-base font-bold text-foreground">
             결제하기
           </h1>
+          {/* 와이어프레임 토글 */}
+          <button
+            onClick={() => {
+              setWeatherRestricted(!weatherRestricted)
+              if (!weatherRestricted && selectedDelivery === "courier") setSelectedDelivery("")
+            }}
+            className={`text-[10px] border rounded-full px-2 py-0.5 flex-shrink-0 ${
+              weatherRestricted
+                ? "border-destructive text-destructive"
+                : "border-border text-muted-foreground"
+            }`}
+          >
+            {weatherRestricted ? "기상제한 ON" : "기상제한 OFF"}
+          </button>
         </div>
       </header>
 
@@ -234,32 +249,6 @@ export default function CheckoutPage() {
           {/* Seller */}
           <p className="text-sm text-muted-foreground mb-3">{mockProduct.seller}</p>
 
-          {/* Date Selection */}
-          <div className="mb-4">
-            <label className="text-sm text-muted-foreground mb-2 block">배송 희망일 선택</label>
-            <div 
-              ref={dateScrollRef}
-              className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide"
-            >
-              {dateOptions.map((d) => (
-                <button
-                  key={d.date}
-                  onClick={() => setSelectedDate(d.date)}
-                  className={`flex-shrink-0 w-14 py-2 rounded-xl border text-center transition-colors ${
-                    selectedDate === d.date
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card border-border text-foreground hover:border-primary"
-                  }`}
-                >
-                  <p className="text-xs font-medium">{d.label}</p>
-                  <p className={`text-[10px] ${selectedDate === d.date ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                    {d.dayOfWeek}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Delivery Method Selection */}
           <div className="mb-4">
             <label className="text-sm text-muted-foreground mb-2 block">배송 수단 선택</label>
@@ -269,10 +258,18 @@ export default function CheckoutPage() {
               </div>
             ) : (
               <div className="space-y-2">
+                {weatherRestricted && (
+                  <div className="flex items-start gap-2 bg-destructive/10 rounded-xl p-3 mb-2">
+                    <span className="text-destructive text-xs leading-relaxed">
+                      현재 기온 조건으로 인해 택배 배송이 일시 중단되었습니다
+                    </span>
+                  </div>
+                )}
                 {deliveryMethods.map((method) => {
-                  const isDisabled = method.metroOnly && !isMetro
+                  const isWeatherBlocked = weatherRestricted && method.id === "courier"
+                  const isDisabled = (method.metroOnly && !isMetro) || isWeatherBlocked
                   const isFree = productTotal >= method.freeThreshold
-                  
+
                   return (
                     <button
                       key={method.id}
@@ -321,6 +318,32 @@ export default function CheckoutPage() {
                 })}
               </div>
             )}
+          </div>
+
+          {/* Date Selection */}
+          <div className="mb-4">
+            <label className="text-sm text-muted-foreground mb-2 block">배송 희망일 선택</label>
+            <div
+              ref={dateScrollRef}
+              className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide"
+            >
+              {dateOptions.map((d) => (
+                <button
+                  key={d.date}
+                  onClick={() => setSelectedDate(d.date)}
+                  className={`flex-shrink-0 w-14 py-2 rounded-xl border text-center transition-colors ${
+                    selectedDate === d.date
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card border-border text-foreground hover:border-primary"
+                  }`}
+                >
+                  <p className="text-xs font-medium">{d.label}</p>
+                  <p className={`text-[10px] ${selectedDate === d.date ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                    {d.dayOfWeek}
+                  </p>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Product Info */}

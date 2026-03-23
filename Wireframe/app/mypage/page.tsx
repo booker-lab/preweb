@@ -13,6 +13,7 @@ import {
   MessageCircle,
   Phone,
   HelpCircle,
+  Users,
 } from "lucide-react"
 import { BottomNav } from "@/components/bottom-nav"
 
@@ -22,7 +23,7 @@ const mockUser = {
   phone: "010-1234-5678",
 }
 
-// Mock order status counts
+// Mock order status counts (일반 주문)
 const orderStatusCounts = {
   confirmed: 1,
   preparing: 0,
@@ -30,11 +31,19 @@ const orderStatusCounts = {
   delivered: 5,
 }
 
+// Mock group buy status counts (공동구매)
+const groupBuyStatusCounts = {
+  recruiting: 2,
+  confirmed: 1,
+  delivering: 1,
+  completed: 3,
+}
+
 // Mock recent order
 const recentOrder = {
   id: "ORD20240323001",
-  status: "IN_TRANSIT",
-  statusLabel: "배송중",
+  status: "DELIVERING",
+  statusLabel: "배송 중",
   statusColor: "bg-blue-100 text-blue-700",
   name: "프리미엄 호접란 3대 세트 - 화이트 에디션",
   option: "화이트 / 대형",
@@ -43,10 +52,17 @@ const recentOrder = {
 }
 
 const orderSteps = [
-  { key: "confirmed",  label: "결제완료", count: orderStatusCounts.confirmed },
-  { key: "preparing",  label: "배송준비", count: orderStatusCounts.preparing },
-  { key: "inTransit",  label: "배송중",   count: orderStatusCounts.inTransit },
-  { key: "delivered",  label: "배송완료", count: orderStatusCounts.delivered },
+  { key: "confirmed",  label: "결제 완료",    count: orderStatusCounts.confirmed },
+  { key: "preparing",  label: "상품 준비 중", count: orderStatusCounts.preparing },
+  { key: "inTransit",  label: "배송 중",      count: orderStatusCounts.inTransit },
+  { key: "delivered",  label: "배송 완료",    count: orderStatusCounts.delivered },
+]
+
+const groupBuySteps = [
+  { key: "recruiting",  label: "모집 중",   count: groupBuyStatusCounts.recruiting },
+  { key: "confirmed",   label: "주문 확정", count: groupBuyStatusCounts.confirmed },
+  { key: "delivering",  label: "배송 중",   count: groupBuyStatusCounts.delivering },
+  { key: "completed",   label: "완료",      count: groupBuyStatusCounts.completed },
 ]
 
 const menuItems = [
@@ -125,6 +141,37 @@ export default function MyPage() {
                   <button
                     key={step.key}
                     onClick={() => router.push("/mypage/orders")}
+                    className="flex flex-col items-center py-2 gap-1 hover:bg-muted/50 rounded-lg transition-colors"
+                  >
+                    <span className={`text-xl font-bold ${step.count > 0 ? "text-primary" : "text-muted-foreground"}`}>
+                      {step.count}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">{step.label}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* 공동구매 참여 현황 */}
+            <section className="bg-card px-4 py-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-primary" />
+                  공동구매 참여 현황
+                </h2>
+                <button
+                  onClick={() => router.push("/mypage/orders?tab=groupbuy")}
+                  className="flex items-center gap-0.5 text-xs text-primary"
+                >
+                  <span>전체 보기</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="grid grid-cols-4 divide-x divide-border">
+                {groupBuySteps.map((step) => (
+                  <button
+                    key={step.key}
+                    onClick={() => router.push("/mypage/orders?tab=groupbuy")}
                     className="flex flex-col items-center py-2 gap-1 hover:bg-muted/50 rounded-lg transition-colors"
                   >
                     <span className={`text-xl font-bold ${step.count > 0 ? "text-primary" : "text-muted-foreground"}`}>
