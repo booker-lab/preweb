@@ -1,0 +1,29 @@
+# Claude Code local settings
+.claude/
+
+# Dependencies
+Wireframe/node_modules/
+node_modules/
+
+# Next.js
+Wireframe/.next/
+Wireframe/out/
+
+# Build
+Wireframe/build/
+
+# Misc
+.DS_Store
+*.pem
+.env
+.env.local
+.env*.local
+
+# Debug
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript
+*.tsbuildinfo
