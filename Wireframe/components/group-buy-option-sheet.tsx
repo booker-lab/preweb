@@ -1,6 +1,7 @@
 "use client"
 
-import { X, Calendar, Truck, CreditCard, AlertTriangle, Users } from "lucide-react"
+import { useState } from "react"
+import { X, Calendar, Truck, CreditCard, AlertTriangle, Users, Check } from "lucide-react"
 
 interface GroupBuyOptionSheetProps {
   isOpen: boolean
@@ -9,7 +10,7 @@ interface GroupBuyOptionSheetProps {
   price: number
   deliveryDate: string
   deliveryMethod: string
-  deliveryFee: number
+  deliveryFee: number | string
   currentParticipants: number
   totalParticipants: number
   daysLeft: number
@@ -29,8 +30,10 @@ export function GroupBuyOptionSheet({
   daysLeft,
   onParticipate,
 }: GroupBuyOptionSheetProps) {
+  const [consentChecked, setConsentChecked] = useState(false)
   const formatPrice = (p: number) => p.toLocaleString("ko-KR")
-  const totalPrice = price + deliveryFee
+  const deliveryFeeNum = typeof deliveryFee === "number" ? deliveryFee : 0
+  const totalPrice = price + deliveryFeeNum
 
   if (!isOpen) return null
 
@@ -86,7 +89,9 @@ export function GroupBuyOptionSheet({
               <CreditCard className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
               <div className="flex items-center gap-2">
                 <span className="text-sm text-foreground">배송비:</span>
-                <span className="text-sm font-medium text-foreground">{formatPrice(deliveryFee)}원</span>
+                <span className="text-sm font-medium text-foreground">
+                  {typeof deliveryFee === "number" ? `${formatPrice(deliveryFee)}원` : deliveryFee}
+                </span>
               </div>
             </div>
           </div>
@@ -99,6 +104,21 @@ export function GroupBuyOptionSheet({
             </p>
           </div>
 
+          {/* 취소 불가 동의 체크박스 */}
+          <button
+            onClick={() => setConsentChecked(!consentChecked)}
+            className="w-full flex items-start gap-3 mb-4"
+          >
+            <div className={`w-5 h-5 rounded border-2 flex-shrink-0 mt-0.5 flex items-center justify-center transition-colors ${
+              consentChecked ? "border-primary bg-primary" : "border-border"
+            }`}>
+              {consentChecked && <Check className="w-3 h-3 text-primary-foreground" />}
+            </div>
+            <p className="text-sm text-foreground text-left leading-relaxed">
+              목표 인원 충족으로 공동구매가 <span className="font-bold text-destructive">확정된 이후에는 취소 및 환불이 불가</span>함을 확인하였습니다.
+            </p>
+          </button>
+
           {/* Total */}
           <div className="flex items-center justify-between py-4 border-t border-border">
             <span className="text-sm text-muted-foreground">1개 상품</span>
@@ -110,7 +130,12 @@ export function GroupBuyOptionSheet({
           {/* Participate Button */}
           <button
             onClick={onParticipate}
-            className="w-full h-14 bg-primary text-primary-foreground rounded-xl font-bold text-base"
+            disabled={!consentChecked}
+            className={`w-full h-14 rounded-xl font-bold text-base transition-colors ${
+              consentChecked
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
+            }`}
           >
             공동구매 참여하기
           </button>

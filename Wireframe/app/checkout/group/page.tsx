@@ -318,15 +318,15 @@ export default function GroupCheckoutPage() {
         <section className="bg-card rounded-2xl p-4 shadow-sm">
           <button
             onClick={() => setAgreedToTerms(!agreedToTerms)}
-            className="flex items-center gap-3 w-full"
+            className="flex items-start gap-3 w-full"
           >
-            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+            <div className={`w-5 h-5 rounded border-2 flex-shrink-0 mt-0.5 flex items-center justify-center transition-colors ${
               agreedToTerms ? "border-primary bg-primary" : "border-border"
             }`}>
               {agreedToTerms && <Check className="w-3 h-3 text-primary-foreground" />}
             </div>
-            <span className="text-sm text-foreground flex-1 text-left">
-              약관에 동의하고 결제를 진행하겠습니다
+            <span className="text-sm text-foreground flex-1 text-left leading-relaxed">
+              공동구매 확정(목표 인원 달성) 이후에는 <span className="font-bold text-destructive">취소 및 환불이 불가</span>함에 동의하며 결제를 진행합니다.
             </span>
           </button>
           <button className="text-xs text-primary mt-2 ml-8">약관 보기</button>

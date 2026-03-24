@@ -58,6 +58,42 @@ greenhub/
 
 ---
 
+## [2026-03-25] 공동구매 결제·취소·환불 정책 확정
+
+### 결제 시점
+- **즉시 결제 (Option A)** 채택 — 참여 즉시 Portone으로 실제 청구
+- Pre-auth(사전 승인) 미적용 — 카카오페이·네이버페이가 pre-auth 미지원
+
+### 취소 가능 구간
+| 구간 | 취소 | 환불 |
+|------|------|------|
+| RECRUITING | 가능 | 즉시 처리 (Portone 환불 API) |
+| CONFIRMED 이후 | **불가** | 불가 |
+
+### CONFIRMED 이후 취소 불가 이유
+CONFIRMED는 계약 성립 시점 — 판매자가 생산/조달 시작. 단일 취소가 `currentParticipants < minParticipants`를 유발해 전체 참여자에 영향.
+
+### 법적 동의 수령 (전자상거래법 제17조)
+참여 전 "확정 이후 취소 불가" 동의 체크박스 + Firestore `groupBuyConsent` 기록:
+```ts
+groupBuyConsent: { agreed: true, agreedAt: Timestamp, userId: string }
+```
+
+### 동의 수령 위치 (와이어프레임 반영)
+1. `GroupBuyOptionSheet` — "확정 이후 취소·환불 불가" 체크박스 (미체크 시 버튼 비활성)
+2. `checkout/group` — 약관 동의 문구 구체화
+
+### 알림톡 발송 시점
+| 트리거 | 수신자 |
+|--------|--------|
+| RECRUITING → CONFIRMED | 전체 참여자 |
+| RECRUITING → CANCELLED (기간 만료) | 전체 참여자 (+ 자동 환불 안내) |
+| CONFIRMED → PREPARING | 전체 참여자 |
+| PREPARING → DELIVERING | 전체 참여자 |
+개인 취소(RECRUITING 중) → 본인 UI만, 타 참여자 알림 없음
+
+---
+
 ## [2026-03-25] 실시간 데이터 전략 확정 (변경 없음)
 
 ### 결정: Firestore 직접 리스너 유지

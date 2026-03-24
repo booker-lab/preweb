@@ -9,6 +9,8 @@ import {
   Package,
   MessageCircle,
   AlertTriangle,
+  Users,
+  Lock,
 } from "lucide-react"
 
 // 주문 상태 — 설계 문서(IA) 확정 코드 기준
@@ -39,6 +41,7 @@ type Order = {
   expectedDate?: string
   pickupCode?: string
   pickupLocation?: string
+  groupBuyProgress?: { current: number; total: number; daysLeft: number }
   items: { id: number; name: string; option: string; quantity: number; price: number }[]
   delivery: { name: string; phone: string; address: string; memo: string }
   payment: { method: string; productTotal: number; deliveryFee: number; total: number }
@@ -61,6 +64,66 @@ const pickupDeliverySteps = [
 ]
 
 const mockOrders: Order[] = [
+  {
+    id: "ORD20240326001",
+    date: "2024.03.26 10:00",
+    status: "RECRUITING" as OrderStatus,
+    saleType: "group" as const,
+    deliveryType: "direct",
+    groupBuyProgress: { current: 18, total: 30, daysLeft: 5 },
+    items: [
+      {
+        id: 10,
+        name: "프리미엄 장미 100송이 공동구매",
+        option: "레드 믹스",
+        quantity: 1,
+        price: 52000,
+      },
+    ],
+    delivery: {
+      name: "홍길동",
+      phone: "010-1234-5678",
+      address: "서울특별시 강남구 테헤란로 123 그린타워 1층",
+      memo: "배송 전 연락바랍니다",
+    },
+    payment: {
+      method: "카카오페이",
+      productTotal: 52000,
+      deliveryFee: 1500,
+      total: 53500,
+    },
+    canCancel: true,
+  },
+  {
+    id: "ORD20240325002",
+    date: "2024.03.25 11:00",
+    status: "CONFIRMED" as OrderStatus,
+    saleType: "group" as const,
+    deliveryType: "direct",
+    groupBuyProgress: { current: 30, total: 30, daysLeft: 0 },
+    items: [
+      {
+        id: 11,
+        name: "카네이션 대형 세트 공동구매",
+        option: "핑크 믹스",
+        quantity: 1,
+        price: 45000,
+      },
+    ],
+    delivery: {
+      name: "홍길동",
+      phone: "010-1234-5678",
+      address: "서울특별시 강남구 테헤란로 123 그린타워 1층",
+      memo: "",
+    },
+    payment: {
+      method: "네이버페이",
+      productTotal: 45000,
+      deliveryFee: 2000,
+      total: 47000,
+    },
+    canCancel: false,
+  },
   {
     id: "ORD20240325001",
     date: "2024.03.25 09:00",
@@ -305,6 +368,45 @@ export default function OrderDetailPage() {
               </div>
             </div>
           ))}
+
+          {/* 공동구매 모집 현황 바 (RECRUITING 상태) */}
+          {order.status === "RECRUITING" && order.groupBuyProgress && (
+            <div className="bg-primary/10 rounded-xl p-4 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-primary" />
+                  공동구매 모집 현황
+                </span>
+                <span className="text-sm text-destructive font-bold">
+                  마감 D-{order.groupBuyProgress.daysLeft}
+                </span>
+              </div>
+              <div className="h-3 bg-muted rounded-full overflow-hidden mb-2">
+                <div
+                  className="h-full bg-primary rounded-full transition-all"
+                  style={{ width: `${(order.groupBuyProgress.current / order.groupBuyProgress.total) * 100}%` }}
+                />
+              </div>
+              <p className="text-sm text-muted-foreground text-center">
+                <span className="text-primary font-bold">{order.groupBuyProgress.current}</span>
+                /{order.groupBuyProgress.total}명 참여중 · 목표까지{" "}
+                <span className="font-medium">{order.groupBuyProgress.total - order.groupBuyProgress.current}명</span> 남음
+              </p>
+            </div>
+          )}
+
+          {/* 공동구매 확정 — 취소 불가 안내 (CONFIRMED 상태) */}
+          {order.status === "CONFIRMED" && order.saleType === "group" && (
+            <div className="bg-violet-50 border border-violet-200 rounded-xl p-3 mb-4 flex items-start gap-2">
+              <Lock className="w-4 h-4 text-violet-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-violet-800">공동구매가 확정되었습니다</p>
+                <p className="text-xs text-violet-600 mt-0.5 leading-relaxed">
+                  목표 인원이 충족되어 주문이 확정되었습니다. 확정 이후에는 취소 및 환불이 불가합니다.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* 취소 사유 블록 */}
           {order.status === "CANCELLED" && "cancelReason" in order && order.cancelReason && (

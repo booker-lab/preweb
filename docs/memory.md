@@ -3,7 +3,7 @@
 > **SSOT(Single Source of Truth)** — 세션 종료 시 항상 이 파일을 최신화합니다.
 > 200라인 초과 시 즉시 50라인 이내로 요약 후 아카이브합니다. (CLAUDE.md Fatal Constraint)
 
-최종 수정: 2026-03-25
+최종 수정: 2026-03-25 (공동구매 결제·취소·환불 정책 확정 반영)
 
 ---
 
@@ -68,6 +68,7 @@ CANCELLED   — 주문 취소
 - [ ] 카드 간편결제 — `mypage/card-payment/page.tsx` 신규
 
 ### 4단계 실제 개발
+- [ ] **선행 작업**: `docs/specs/` API 계약 정의 (orders.md → products.md → payments.md → auth.md → notifications.md 순서)
 - [ ] pnpm 모노레포 셋업 + packages/shared 공통 타입 정의
 - [ ] NestJS API 서버 셋업 (apps/api) — auth·orders·products·payments·notifications 모듈
 - [ ] Next.js 15 소비자 앱 셋업 (apps/consumer) + PWA 기반 구성
@@ -75,7 +76,6 @@ CANCELLED   — 주문 취소
 - [ ] Firestore 연동 — 실시간 주문 상태·공동구매 참여 인원·Daily Cap 리스너
 - [ ] Portone SDK — 카카오페이·네이버페이·카드 결제 + webhook 수신
 - [ ] 카카오 알림톡 — 알리고 또는 솔라피 API
-- [ ] **선행 작업**: `docs/specs/` API 계약 정의 (4단계 시작 전 필수)
 
 ---
 
