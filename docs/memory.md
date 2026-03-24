@@ -68,12 +68,14 @@ CANCELLED   — 주문 취소
 - [ ] 카드 간편결제 — `mypage/card-payment/page.tsx` 신규
 
 ### 4단계 실제 개발
-- [ ] Next.js 15 프로젝트 셋업 (greenhub monorepo 연동)
-- [ ] NextAuth.js — 카카오·네이버·이메일 Provider
-- [ ] Firestore 연동 — 실시간 주문 상태 리스너
-- [ ] Portone SDK — 카카오페이·네이버페이·카드 결제
+- [ ] pnpm 모노레포 셋업 + packages/shared 공통 타입 정의
+- [ ] NestJS API 서버 셋업 (apps/api) — auth·orders·products·payments·notifications 모듈
+- [ ] Next.js 15 소비자 앱 셋업 (apps/consumer) + PWA 기반 구성
+- [ ] NextAuth.js — 카카오·네이버·이메일 Provider / NestJS JWT Guard 연동
+- [ ] Firestore 연동 — 실시간 주문 상태·공동구매 참여 인원·Daily Cap 리스너
+- [ ] Portone SDK — 카카오페이·네이버페이·카드 결제 + webhook 수신
 - [ ] 카카오 알림톡 — 알리고 또는 솔라피 API
-- [ ] `order.entity.ts` 재작성 — PENDING 포함 전체 상태 반영
+- [ ] **선행 작업**: `docs/specs/` API 계약 정의 (4단계 시작 전 필수)
 
 ---
 
@@ -88,6 +90,20 @@ CANCELLED   — 주문 취소
 | 실시간 DB | Firestore (WebSocket·Redis 불필요) | 주문 상태·참여인원·Daily Cap 통합 |
 
 ---
+
+## 4단계 개발 방향 확정 (2026-03-25)
+
+- `C:\Develop\greenhub`, `C:\Develop\greenlink` — 이전 프로젝트, 무관. 삭제 예정.
+- 4단계는 preweb 와이어프레임 기반 **완전 신규 프로젝트** 셋업
+- 기존 코드 재활용 없음. 설계 문서 + 와이어프레임이 유일한 기준.
+
+### 아키텍처 최종 확정 (2026-03-25)
+
+- **백엔드**: NestJS Layered Architecture (DDD 미적용) — Railway 배포
+- **프론트엔드**: Next.js 15 (소비자·판매자·드라이버 앱) — Vercel 배포
+- **실시간**: Firestore 직접 리스너 (NestJS Repository 추상화 없음)
+- **구조**: pnpm 모노레포 — apps/(consumer·seller·driver·api) + packages/shared
+- **결정 근거**: `docs/CRITICAL_LOGIC.md` 참조
 
 ## 설계 문서 경로
 
