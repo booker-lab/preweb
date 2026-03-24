@@ -180,7 +180,7 @@ export default function GroupBuyDetailPage({ params }: { params: Promise<{ id: s
 
   const handleParticipate = () => {
     setIsSheetOpen(false)
-    router.push("/checkout")
+    router.push("/checkout/group")
   }
 
   return (

@@ -7,6 +7,8 @@ import {
   Check,
   MapPin,
   Package,
+  MessageCircle,
+  AlertTriangle,
 } from "lucide-react"
 
 // 주문 상태 — 설계 문서(IA) 확정 코드 기준
@@ -27,6 +29,22 @@ const orderStatuses = {
 
 type OrderStatus = keyof typeof orderStatuses
 
+type Order = {
+  id: string
+  date: string
+  status: OrderStatus
+  saleType?: "normal" | "group"
+  deliveryType: string
+  cancelReason?: string
+  expectedDate?: string
+  pickupCode?: string
+  pickupLocation?: string
+  items: { id: number; name: string; option: string; quantity: number; price: number }[]
+  delivery: { name: string; phone: string; address: string; memo: string }
+  payment: { method: string; productTotal: number; deliveryFee: number; total: number }
+  canCancel: boolean
+}
+
 const deliverySteps = [
   { key: "ACCEPTED",   label: "결제 완료" },
   { key: "PREPARING",  label: "상품 준비 중" },
@@ -42,7 +60,37 @@ const pickupDeliverySteps = [
   { key: "PICKED_UP",   label: "픽업 완료" },
 ]
 
-const mockOrders = [
+const mockOrders: Order[] = [
+  {
+    id: "ORD20240325001",
+    date: "2024.03.25 09:00",
+    status: "CANCELLED" as OrderStatus,
+    saleType: "group" as const,
+    deliveryType: "direct",
+    cancelReason: "[목표 수량 미달성으로 취소] 모집 기한까지 목표 인원에 도달하지 못했습니다.",
+    items: [
+      {
+        id: 9,
+        name: "카네이션 100송이 공동구매 세트",
+        option: "핑크 믹스",
+        quantity: 1,
+        price: 45000,
+      },
+    ],
+    delivery: {
+      name: "홍길동",
+      phone: "010-1234-5678",
+      address: "서울특별시 강남구 테헤란로 123 그린타워 1층",
+      memo: "",
+    },
+    payment: {
+      method: "카카오페이",
+      productTotal: 45000,
+      deliveryFee: 1500,
+      total: 46500,
+    },
+    canCancel: false,
+  },
   {
     id: "ORD20240323001",
     date: "2024.03.23 14:30",
@@ -257,6 +305,42 @@ export default function OrderDetailPage() {
               </div>
             </div>
           ))}
+
+          {/* 취소 사유 블록 */}
+          {order.status === "CANCELLED" && "cancelReason" in order && order.cancelReason && (
+            <div className={`rounded-xl p-4 mb-3 ${"saleType" in order && order.saleType === "group"
+              ? "bg-destructive/5 border border-destructive/20"
+              : "bg-muted"
+            }`}>
+              {"saleType" in order && order.saleType === "group" ? (
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
+                    <span className="text-sm font-bold text-destructive">공동구매 자동 취소</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+                    {order.cancelReason}
+                  </p>
+                  {/* 카카오 알림톡 발송 안내 */}
+                  <div className="flex items-start gap-2 bg-[#FEE500]/20 border border-[#FEE500]/50 rounded-lg px-3 py-2.5">
+                    <MessageCircle className="w-4 h-4 text-[#3A1D1D] flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-bold text-[#3A1D1D]">카카오 알림톡 발송 완료</p>
+                      <p className="text-xs text-[#3A1D1D]/70 leading-relaxed mt-0.5">
+                        취소 사유와 환불 안내가 카카오톡으로 발송되었습니다.
+                        결제 금액은 3~5 영업일 내 전액 환불됩니다.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex gap-2 text-sm">
+                  <span className="text-muted-foreground flex-shrink-0">취소 사유</span>
+                  <span className="text-foreground">{order.cancelReason}</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 배송 진행 바 */}
           {order.status !== "CANCELLED" && order.status !== "RECRUITING" && (

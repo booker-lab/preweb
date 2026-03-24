@@ -96,7 +96,8 @@ export default function GroupCheckoutPage() {
 
   const handleSubmit = () => {
     if (!canSubmit) return
-    router.push("/checkout/complete")
+    sessionStorage.setItem("checkoutType", "group")
+    router.push("/checkout/complete?type=group")
   }
 
   return (

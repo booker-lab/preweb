@@ -1,14 +1,18 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   ChevronLeft,
   CheckCircle,
+  Users,
   ChevronRight,
   ChevronDown,
   ChevronUp,
+  Calendar,
+  Truck,
+  Lock,
 } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect, Suspense } from "react"
 
 // Mock order data
 const mockOrder = {
@@ -22,6 +26,10 @@ const mockOrder = {
     address: "서울특별시 강남구 테헤란로 123",
     detail: "그린타워 1층",
     memo: "배송 전 연락바랍니다",
+  },
+  groupBuy: {
+    deliveryDate: "4월 10일 (판매자 지정)",
+    deliveryMethod: "꽃차 직배송",
   },
   items: [
     {
@@ -41,9 +49,17 @@ const mockOrder = {
   },
 }
 
-export default function CheckoutCompletePage() {
+function CheckoutCompleteContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const [isGroupBuy, setIsGroupBuy] = useState(searchParams.get("type") === "group")
   const [isProductExpanded, setIsProductExpanded] = useState(false)
+
+  useEffect(() => {
+    if (sessionStorage.getItem("checkoutType") === "group") {
+      setIsGroupBuy(true)
+    }
+  }, [])
 
   const formatPrice = (price: number) => price.toLocaleString("ko-KR")
 
@@ -65,10 +81,32 @@ export default function CheckoutCompletePage() {
       <main className="pt-14 px-4 py-6 space-y-4">
         {/* Success Message */}
         <div className="flex flex-col items-center py-6">
-          <CheckCircle className="w-16 h-16 text-primary mb-4" />
-          <h2 className="text-xl font-bold text-foreground mb-2">결제를 완료하였습니다</h2>
+          {isGroupBuy ? (
+            <Users className="w-16 h-16 text-violet-500 mb-4" />
+          ) : (
+            <CheckCircle className="w-16 h-16 text-primary mb-4" />
+          )}
+          <h2 className="text-xl font-bold text-foreground mb-2">
+            {isGroupBuy ? "공동구매 참여가 완료되었습니다" : "결제를 완료하였습니다"}
+          </h2>
           <p className="text-sm text-muted-foreground">주문번호: {mockOrder.id}</p>
         </div>
+
+        {/* 공동구매 안내 배너 */}
+        {isGroupBuy && (
+          <section className="bg-violet-50 border border-violet-200 rounded-2xl p-4">
+            <div className="flex items-start gap-3">
+              <span className="text-violet-500 text-lg mt-0.5">🌿</span>
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-violet-800">모집이 완료되면 주문이 확정됩니다</p>
+                <p className="text-xs text-violet-600 leading-relaxed">
+                  목표 인원이 모이면 카카오톡으로 확정 알림을 보내드립니다.
+                  모집 기한까지 인원이 미달될 경우 자동으로 취소되며 결제 금액은 전액 환불됩니다.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Section 1: 배송 정보 */}
         <section className="bg-card rounded-2xl p-4 shadow-sm">
@@ -99,6 +137,26 @@ export default function CheckoutCompletePage() {
               <span className="text-sm text-foreground">{mockOrder.delivery.memo}</span>
             </div>
           </div>
+
+          {/* 공동구매 전용: 판매자 지정 배송일·수단 */}
+          {isGroupBuy && (
+            <div className="mt-4 bg-muted rounded-xl p-3 space-y-2">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">판매자 지정 배송 (변경 불가)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-primary flex-shrink-0" />
+                <span className="text-sm text-muted-foreground w-16 flex-shrink-0">배송 예정일</span>
+                <span className="text-sm font-medium text-foreground">{mockOrder.groupBuy.deliveryDate}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Truck className="w-4 h-4 text-primary flex-shrink-0" />
+                <span className="text-sm text-muted-foreground w-16 flex-shrink-0">배송 수단</span>
+                <span className="text-sm font-medium text-foreground">{mockOrder.groupBuy.deliveryMethod}</span>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Section 2: 주문 정보 */}
@@ -204,5 +262,13 @@ export default function CheckoutCompletePage() {
         <div className="h-[env(safe-area-inset-bottom)]" />
       </div>
     </div>
+  )
+}
+
+export default function CheckoutCompletePage() {
+  return (
+    <Suspense>
+      <CheckoutCompleteContent />
+    </Suspense>
   )
 }

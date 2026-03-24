@@ -148,6 +148,7 @@ export default function CheckoutPage() {
 
   const handleSubmit = () => {
     if (!canSubmit) return
+    sessionStorage.setItem("checkoutType", "normal")
     router.push("/checkout/complete")
   }
 
