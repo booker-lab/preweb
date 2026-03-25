@@ -334,7 +334,9 @@ PATCH /stores/:storeId/orders/:orderId/review
 
 ---
 
-## 9. packages/shared 공통 타입 (초안)
+## 9. packages/shared 공통 타입
+
+> **Timestamp 직렬화 규칙**: Firestore 스키마의 `Timestamp` 필드는 shared 타입에서 `string (ISO8601)`으로 표현합니다. 클라이언트·서버 경계에서 JSON 직렬화가 필요하기 때문입니다.
 
 ```ts
 // packages/shared/src/order.types.ts
@@ -355,10 +357,58 @@ export type OrderStatus =
 export type DeliveryMethod = 'direct' | 'hub' | 'parcel'
 export type SaleType = 'normal' | 'group'
 
+export interface DeliveryAddress {
+  address: string
+  addressDetail: string
+  zipCode: string
+}
+
 export interface GroupBuyConsent {
   agreed: true
   agreedAt: string   // ISO8601
   userId: string
+}
+
+export interface Order {
+  id: string
+  storeId: string
+  userId: string
+  productId: string
+  quantity: number
+  saleType: SaleType
+  status: OrderStatus
+  deliveryMethod: DeliveryMethod
+  deliveryFee: number
+  deliveryAddress: DeliveryAddress
+  isMetropolitan: boolean
+  pickupCode: string | null
+  totalAmount: number
+  requestedDeliveryDate: string | null   // ISO8601
+  cancelReason: string | null
+  groupBuyConsent: GroupBuyConsent | null
+  createdAt: string   // ISO8601
+  updatedAt: string   // ISO8601
+}
+
+export interface DailyCap {
+  id: string   // '{storeId}_{YYYY-MM-DD}'
+  storeId: string
+  date: string   // 'YYYY-MM-DD'
+  totalCap: number
+  usedSlots: number
+}
+
+export interface CreateOrderRequest {
+  productId: string
+  quantity: number
+  saleType: SaleType
+  deliveryMethod: DeliveryMethod
+  deliveryAddress: DeliveryAddress
+  requestedDeliveryDate?: string   // 일반 판매 전용 'YYYY-MM-DD'
+  groupBuyConsent?: {
+    agreed: true
+    agreedAt: string   // ISO8601
+  }
 }
 ```
 

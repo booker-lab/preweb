@@ -343,7 +343,9 @@ PATCH Body
 
 ---
 
-## 7. packages/shared 공통 타입 (초안)
+## 7. packages/shared 공통 타입
+
+> **Timestamp 직렬화 규칙**: Firestore 스키마의 `Timestamp` 필드는 shared 타입에서 `string (ISO8601)`으로 표현합니다.
 
 ```ts
 // packages/shared/src/product.types.ts
@@ -356,18 +358,51 @@ export type ColorOption =
 
 export type DeliverySize = 'small' | 'medium' | 'large'
 
-// SaleType, DeliveryMethod 는 order.types.ts 에서 단일 정의 — 여기서 re-export
-export type { SaleType, DeliveryMethod } from './order.types'
+// SaleType, DeliveryMethod 는 order.types.ts 에서 단일 정의 → 여기서 re-export
+export type { SaleType, DeliveryMethod } from './order.types.js'
 
 export interface GroupProductConfig {
   productId: string
   minParticipants: number
   maxParticipants: number
-  recruitDeadline: string
+  recruitDeadline: string   // ISO8601
   currentParticipants: number
-  groupDeliveryDate: string
+  groupDeliveryDate: string   // ISO8601
   groupDeliveryMethod: 'direct' | 'parcel'
   deliveryFeeDiscount: number
+}
+
+export interface Product {
+  id: string
+  storeId: string
+  name: string
+  description: string
+  images: string[]
+  price: number
+  category: Category
+  colors: ColorOption[]
+  saleType: SaleType
+  deliverySize: DeliverySize
+  isActive: boolean
+  createdAt: string   // ISO8601
+  updatedAt: string   // ISO8601
+}
+
+export interface ProductSummary {
+  id: string
+  name: string
+  price: number
+  images: string[]
+  category: Category
+  colors: ColorOption[]
+  saleType: SaleType
+  isActive: boolean
+  groupSummary?: {
+    currentParticipants: number
+    minParticipants: number
+    maxParticipants: number
+    recruitDeadline: string   // ISO8601
+  }
 }
 
 export interface DeliveryFeeConfig {
@@ -379,6 +414,7 @@ export interface DeliveryFeeConfig {
   freeThresholdHub: number
   freeThresholdParcel: number
   weatherRestrictionActive: boolean
+  updatedAt: string   // ISO8601
 }
 ```
 

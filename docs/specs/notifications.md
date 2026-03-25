@@ -289,7 +289,9 @@ NestJS @Cron (매 10분)
 
 ---
 
-## 10. packages/shared 공통 타입 (초안)
+## 10. packages/shared 공통 타입
+
+> **Timestamp 직렬화 규칙**: Firestore 스키마의 `Timestamp` 필드는 shared 타입에서 `string (ISO8601)`으로 표현합니다.
 
 ```ts
 // packages/shared/src/notification.types.ts
@@ -315,6 +317,30 @@ export type NotificationTemplateCode =
   | 'GROUP_PREPARING'
   | 'GROUP_DELIVERING'
   | 'GROUP_DELIVERED'
+
+export interface Notification {
+  id: string
+  userId: string
+  orderId: string | null
+  channel: NotificationChannel
+  templateCode: NotificationTemplateCode
+  variables: Record<string, string>
+  message: string
+  phone: string | null
+  fcmToken: string | null
+  status: NotificationStatus
+  sentAt: string | null   // ISO8601
+  errorMessage: string | null
+  createdAt: string       // ISO8601
+}
+
+export interface NotificationSummary {
+  id: string
+  templateCode: NotificationTemplateCode
+  message: string
+  orderId: string | null
+  sentAt: string   // ISO8601
+}
 ```
 
 ---

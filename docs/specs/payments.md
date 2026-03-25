@@ -254,7 +254,9 @@ POST /payments/:paymentId/refund
 
 ---
 
-## 8. packages/shared 공통 타입 (초안)
+## 8. packages/shared 공통 타입
+
+> **Timestamp 직렬화 규칙**: Firestore 스키마의 `Timestamp` 필드는 shared 타입에서 `string (ISO8601)`으로 표현합니다.
 
 ```ts
 // packages/shared/src/payment.types.ts
@@ -264,7 +266,7 @@ export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'CANCELLED'
 export type PayMethod = 'kakaopay' | 'naverpay' | 'card'
 
 export interface Payment {
-  id: string
+  id: string                    // Portone imp_uid
   orderId: string
   userId: string
   storeId: string
@@ -274,10 +276,24 @@ export interface Payment {
   portoneImpUid: string
   portoneMerchantUid: string
   refundAmount: number | null
-  refundedAt: string | null   // ISO8601
+  refundedAt: string | null     // ISO8601
   refundReason: string | null
-  createdAt: string
-  updatedAt: string
+  createdAt: string             // ISO8601
+  updatedAt: string             // ISO8601
+}
+
+// POST /stores/:storeId/orders 응답 내 Portone 결제 파라미터
+export interface PortonePaymentParams {
+  pg: string              // 'html5_inicis' | 'naverpay' | 'kakaopay'
+  pay_method: string      // 'kakaopay' | 'naverpay' | 'card'
+  merchant_uid: string    // orderId
+  name: string            // 상품명
+  amount: number          // 검증 기준 금액
+  buyer_name: string
+  buyer_tel: string
+  buyer_email: string
+  buyer_addr: string
+  buyer_postcode: string
 }
 ```
 

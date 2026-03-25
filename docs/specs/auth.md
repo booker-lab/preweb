@@ -283,7 +283,9 @@ PATCH /auth/me/fcm-token
 
 ---
 
-## 9. packages/shared 공통 타입 (초안)
+## 9. packages/shared 공통 타입
+
+> **Timestamp 직렬화 규칙**: Firestore 스키마의 `Timestamp` 필드는 shared 타입에서 `string (ISO8601)`으로 표현합니다.
 
 ```ts
 // packages/shared/src/auth.types.ts
@@ -318,6 +320,9 @@ export interface UserProfile {
   storeId: string | null
   providers: AuthProvider[]
   savedAddresses: SavedAddress[]
+  fcmToken: string | null   // PWA 푸시 토큰
+  createdAt: string   // ISO8601
+  updatedAt: string   // ISO8601
 }
 ```
 
