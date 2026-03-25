@@ -3,7 +3,7 @@
 > **SSOT(Single Source of Truth)** — 세션 종료 시 항상 이 파일을 최신화합니다.
 > 200라인 초과 시 즉시 50라인 이내로 요약 후 아카이브합니다. (CLAUDE.md Fatal Constraint)
 
-최종 수정: 2026-03-25 (공동구매 결제·취소·환불 정책 확정 반영)
+최종 수정: 2026-03-26 (4단계 API 계약 문서 작성 + 정합성 검토 완료)
 
 ---
 
@@ -14,7 +14,7 @@
 | 1단계 | 요구사항 정의 | ✅ 완료 |
 | 2단계 | 정보 구조 설계 (IA) | ✅ 완료 |
 | 3단계 | 화면 설계 (Wireframe) | ✅ 완료 (정합성 수정 포함) |
-| 4단계 | API 계약 정의 + 실제 개발 | 🔲 준비 중 |
+| 4단계 | API 계약 정의 + 실제 개발 | 🔄 진행 중 (API 계약 완료, 개발 미시작) |
 
 ---
 
@@ -68,14 +68,19 @@ CANCELLED   — 주문 취소
 - [ ] 카드 간편결제 — `mypage/card-payment/page.tsx` 신규
 
 ### 4단계 실제 개발
-- [ ] **선행 작업**: `docs/specs/` API 계약 정의 (orders.md → products.md → payments.md → auth.md → notifications.md 순서)
+- [x] **선행 작업**: `docs/specs/` API 계약 정의 완료 (2026-03-26)
+  - [x] orders.md — 상태 FSM, Firestore 스키마, API, 공동구매 자동 처리, Daily Cap
+  - [x] products.md — 상품·공동구매설정·배송비 스키마, 색상 필터 로직, API
+  - [x] payments.md — Portone 결제 플로우, 환불 3가지 경로, 보안 체크리스트
+  - [x] auth.md — NextAuth.js + NestJS JWT Guard, Role 시스템, 역할별 접근 제어
+  - [x] notifications.md — 알림톡 14개 템플릿, FCM 푸시, 알리고 연동, 마감 스케줄러
 - [ ] pnpm 모노레포 셋업 + packages/shared 공통 타입 정의
 - [ ] NestJS API 서버 셋업 (apps/api) — auth·orders·products·payments·notifications 모듈
 - [ ] Next.js 15 소비자 앱 셋업 (apps/consumer) + PWA 기반 구성
 - [ ] NextAuth.js — 카카오·네이버·이메일 Provider / NestJS JWT Guard 연동
 - [ ] Firestore 연동 — 실시간 주문 상태·공동구매 참여 인원·Daily Cap 리스너
 - [ ] Portone SDK — 카카오페이·네이버페이·카드 결제 + webhook 수신
-- [ ] 카카오 알림톡 — 알리고 또는 솔라피 API
+- [ ] 카카오 알림톡 — 알리고 API 연동 (MVP 채택)
 
 ---
 

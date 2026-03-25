@@ -1,0 +1,373 @@
+# Orders Domain Spec
+
+> **작성일**: 2026-03-26
+> **상태**: Draft (4단계 개발 선행 문서)
+> **연관 문서**: `CRITICAL_LOGIC.md`, `1단계 요구사항 정의.md`, `2단계 IA.md`
+
+---
+
+## 1. 도메인 개요
+
+`orders` 도메인은 소비자·판매자·드라이버 세 앱이 공유하는 **핵심 도메인**이다.
+모든 비즈니스 로직(상태 전환·결제 검증·공동구매 자동 환불·Daily Cap 동시성 처리)은
+**NestJS API 서버 단독으로 처리**하며, 클라이언트는 Firestore 실시간 리스너로 결과를 수신한다.
+
+---
+
+## 2. 주문 상태 FSM
+
+### 상태 코드 전체
+
+| 상태 코드 | 소비자 노출 명칭 | 적용 판매 방식 | 알림톡 |
+|-----------|----------------|--------------|--------|
+| `PENDING` | (미노출) | 공통 (내부) | - |
+| `RECRUITING` | 모집 중 | 공동구매 | ✅ |
+| `CONFIRMED` | 주문 확정 | 공동구매 | ✅ |
+| `ACCEPTED` | 결제 완료 | 일반 판매 | ✅ |
+| `PREPARING` | 상품 준비 중 | 공통 | ✅ |
+| `DELIVERING` | 배송 중 | 공통 | ✅ |
+| `HUB_ARRIVED` | 거점 도착 | 거점 픽업 전용 | ✅ |
+| `PICKED_UP` | 픽업 완료 | 거점 픽업 전용 | - |
+| `DELIVERED` | 배송 완료 | 직배송·택배 | ✅ |
+| `CANCELLED` | 주문 취소 | 공통 | ✅ (사유 포함) |
+| `REVIEWED` | 구매 확정 | 공통 | - |
+
+### 상태 전환 흐름
+
+```
+[일반 판매]
+  PENDING → ACCEPTED → PREPARING → DELIVERING → DELIVERED → REVIEWED
+                                             ↘ HUB_ARRIVED → PICKED_UP → REVIEWED
+
+[공동구매]
+  PENDING → RECRUITING → CONFIRMED → PREPARING → DELIVERING → DELIVERED → REVIEWED
+                       ↘ CANCELLED (마감 기한 내 minParticipants 미달 → 자동 환불)
+
+[공통 취소]
+  RECRUITING → CANCELLED (소비자 개인 취소, RECRUITING 구간 한정)
+  모든 상태 → CANCELLED (판매자 강제 취소, 사유 필수)
+```
+
+### PENDING 처리 규칙
+
+- Portone 결제창이 열리는 순간 `PENDING` 상태 주문 생성 (소비자 미노출)
+- Portone webhook 수신 성공 → `ACCEPTED` 또는 `RECRUITING` 으로 전환
+- **15분 내 webhook 미수신** → NestJS 스케줄러가 주문 자동 삭제 + 슬롯 복구
+
+---
+
+## 3. Firestore 컬렉션 스키마
+
+### `orders/{orderId}`
+
+```ts
+{
+  id: string
+  storeId: string              // MVP: 'dear-orchid' 고정
+  userId: string
+  productId: string
+  quantity: number
+  saleType: 'normal' | 'group'
+
+  status: OrderStatus          // 위 FSM 참조
+
+  // 배송 정보
+  deliveryMethod: 'direct' | 'hub' | 'parcel'
+  deliveryFee: number
+  deliveryAddress: {
+    address: string
+    addressDetail: string
+    zipCode: string
+  }
+  isMetropolitan: boolean      // 서울/경기 여부 (주소 판별)
+  pickupCode: string | null    // hub 배송 시에만 생성 (6자리)
+
+  // 금액
+  totalAmount: number          // 상품가 + 배송비
+
+  // 일반 판매 전용
+  requestedDeliveryDate: Timestamp | null
+
+  // 취소 정보
+  cancelReason: string | null
+
+  // 공동구매 전용 — 법적 동의 기록 (전자상거래법 제17조)
+  groupBuyConsent: {
+    agreed: true               // 미동의 시 결제 진입 불가이므로 항상 true
+    agreedAt: Timestamp
+    userId: string
+  } | null                     // 일반 판매는 null
+
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+```
+
+### `dailyCaps/{storeId_date}`
+
+```ts
+{
+  id: string                   // '{storeId}_{YYYY-MM-DD}'
+  storeId: string
+  date: string                 // 'YYYY-MM-DD'
+  totalCap: number             // 날짜별 최대 수용량 (직배송 + 거점 픽업 합산)
+  usedSlots: number            // 실시간 갱신 (Firestore 트랜잭션)
+}
+```
+
+> `groupProductConfig` 스키마는 `products.md` 에서 정의
+
+---
+
+## 4. API 엔드포인트
+
+> **기본 경로**: `/stores/:storeId/orders`
+> MVP에서는 `storeId = 'dear-orchid'` 고정. 다중 판매자 확장 시 변경 없음.
+
+### 주문 생성
+
+```
+POST /stores/:storeId/orders
+```
+
+**Request Body**
+```ts
+{
+  productId: string
+  quantity: number
+  saleType: 'normal' | 'group'
+  deliveryMethod: 'direct' | 'hub' | 'parcel'
+  deliveryAddress: { address, addressDetail, zipCode }
+  requestedDeliveryDate?: string   // 일반 판매 전용 'YYYY-MM-DD'
+  groupBuyConsent?: {              // 공동구매 전용
+    agreed: true
+    agreedAt: string               // ISO8601
+  }
+}
+```
+
+**처리 흐름**
+1. Daily Cap 잔여 슬롯 검증 (Firestore 트랜잭션)
+2. 공동구매: `groupBuyConsent` 필드 존재 여부 검증
+3. `PENDING` 상태 주문 생성 + `usedSlots` +1
+4. Portone 결제 요청 파라미터 반환
+
+**Response** `201`
+```ts
+{ orderId: string, portonePaymentParams: object }
+```
+
+---
+
+### Portone Webhook 수신
+
+```
+POST /payments/webhook/portone
+```
+
+**처리 흐름**
+1. Portone 결제 금액 검증 (위변조 방지)
+2. 검증 성공 → `PENDING` 제거 후 상태 전환
+   - `saleType: 'normal'` → `ACCEPTED`
+   - `saleType: 'group'` → `RECRUITING`
+3. 카카오 알림톡 발송 (알리고/솔라피)
+4. 검증 실패 → 주문 `CANCELLED` + 슬롯 복구 + 환불 처리
+
+---
+
+### 주문 상태 조회
+
+```
+GET /stores/:storeId/orders/:orderId
+```
+
+> 소비자 앱은 **Firestore 실시간 리스너**로 상태를 수신.
+> 이 엔드포인트는 초기 로드 및 서버사이드 렌더링(SSR) 용도로만 사용.
+
+**Response** `200` — 주문 전체 필드
+
+---
+
+### 주문 목록 조회
+
+```
+GET /stores/:storeId/orders?userId=:userId&status=:status&saleType=:saleType
+```
+
+| 파라미터 | 필수 | 설명 |
+|----------|------|------|
+| `userId` | ✅ | 본인 주문만 조회 |
+| `status` | - | 특정 상태 필터 |
+| `saleType` | - | `normal` \| `group` |
+
+---
+
+### 주문 취소
+
+```
+PATCH /stores/:storeId/orders/:orderId/cancel
+```
+
+**Request Body**
+```ts
+{ reason?: string }
+```
+
+**처리 규칙**
+- `RECRUITING` 상태: 취소 허용 → Portone 환불 API → `CANCELLED` + `currentParticipants` -1
+- `CONFIRMED` 이후: **취소 거부** `403` (계약 성립 시점, 판매자 생산 시작)
+- 환불 소요: 카드 3~5 영업일, 간편결제 1~3일
+
+---
+
+### 상태 전환 (판매자·드라이버 전용)
+
+```
+PATCH /stores/:storeId/orders/:orderId/status
+```
+
+**Request Body**
+```ts
+{ status: OrderStatus, reason?: string }
+```
+
+**허용 전환 목록** (NestJS Guard에서 역할별 제한)
+
+| 호출 주체 | 허용 전환 |
+|-----------|----------|
+| 판매자 | `ACCEPTED → PREPARING`, `CONFIRMED → PREPARING`, `* → CANCELLED` |
+| 드라이버 | `PREPARING → DELIVERING`, `DELIVERING → HUB_ARRIVED`, `DELIVERING → DELIVERED` |
+| 시스템 (스케줄러) | `RECRUITING → CONFIRMED`, `RECRUITING → CANCELLED` (마감 기한) |
+| 소비자 | `DELIVERED → REVIEWED`, `PICKED_UP → REVIEWED` |
+
+---
+
+### 구매 확정 (REVIEWED 전환)
+
+```
+PATCH /stores/:storeId/orders/:orderId/review
+```
+
+- `DELIVERED` 또는 `PICKED_UP` 상태에서만 허용
+- 리뷰 작성 또는 구매 확정 버튼 클릭 시 호출
+
+---
+
+## 5. 공동구매 자동 처리 로직
+
+### CONFIRMED 자동 전환
+
+```
+트리거: NestJS 스케줄러 (1분 주기 폴링 or Firestore onWrite 트리거)
+
+조건: groupProductConfig.currentParticipants >= groupProductConfig.minParticipants
+
+처리:
+  1. 해당 groupProductId의 모든 RECRUITING 주문 → CONFIRMED 일괄 전환
+  2. 전체 참여자에게 알림톡 발송: "목표 인원이 모였습니다! 주문이 확정되었습니다."
+```
+
+### 마감 기한 미달 자동 취소
+
+```
+트리거: NestJS 스케줄러 (groupProductConfig.recruitDeadline 경과 시)
+
+조건: currentParticipants < minParticipants
+
+처리:
+  1. 모든 RECRUITING 주문 → CANCELLED (cancelReason: '목표 수량 미달성으로 취소')
+  2. Portone 환불 API 일괄 호출
+  3. 전체 참여자에게 알림톡 발송: "[목표 수량 미달성으로 취소] 결제 금액은 3~5일 내 환불됩니다."
+  4. usedSlots 복구
+```
+
+---
+
+## 6. Daily Cap 동시성 처리
+
+```
+문제: 두 소비자가 동시에 마지막 슬롯을 결제하는 레이스 컨디션
+
+해결: Firestore 트랜잭션 (낙관적 잠금)
+
+흐름:
+  1. 트랜잭션 시작
+  2. dailyCaps 문서 읽기
+  3. usedSlots < totalCap 확인
+  4. usedSlots + quantity 원자적 업데이트
+  5. 트랜잭션 커밋 실패(충돌) → 재시도 최대 3회 → 실패 시 409 응답
+```
+
+---
+
+## 7. 알림톡 발송 시점
+
+| 트리거 | 수신자 | 내용 요약 |
+|--------|--------|----------|
+| `PENDING → ACCEPTED` | 본인 | 일반 판매 결제 완료 |
+| `PENDING → RECRUITING` | 본인 | 공동구매 참여 완료, 현재 N/M명 |
+| `RECRUITING → CONFIRMED` | **전체 참여자** | 목표 달성, 주문 확정 |
+| `RECRUITING → CANCELLED` (마감 미달) | **전체 참여자** | 미달 취소 + 환불 일정 안내 |
+| `RECRUITING → CANCELLED` (개인 취소) | 취소자 본인만 | 취소 및 환불 완료 |
+| 마감 2시간 전 | 전체 참여자 | 마감 임박 + 공유 유도 |
+| `CONFIRMED → PREPARING` | 전체 참여자 | 판매자 준비 시작 |
+| `ACCEPTED → PREPARING` | 본인 | 판매자 준비 시작 |
+| `PREPARING → DELIVERING` (일반 판매) | 본인 | 배송 시작 |
+| `PREPARING → DELIVERING` (공동구매) | **전체 참여자** | 배송 시작 |
+| `DELIVERING → HUB_ARRIVED` | 본인 | 거점 도착, 픽업 코드 안내 |
+| `DELIVERING → DELIVERED` (일반 판매) | 본인 | 배송 완료 |
+| `DELIVERING → DELIVERED` (공동구매) | **전체 참여자** | 배송 완료 |
+| `* → CANCELLED` (판매자 강제) | 본인 | 취소 사유 + 환불 안내 |
+
+---
+
+## 8. 취소 사유 워딩 표준
+
+```
+"[목표 수량 미달성으로 취소]"   — 공동구매 마감 미달
+"[산지 재고 소진으로 취소]"     — 물량 확보 실패
+"[배송 불가 지역으로 취소]"     — 배송 범위 외 주소
+"[결제 오류로 취소]"            — 결제 처리 실패
+```
+
+> 취소 사유는 주문 현황 보드 UI와 알림톡 모두에 동일하게 노출.
+
+---
+
+## 9. packages/shared 공통 타입 (초안)
+
+```ts
+// packages/shared/src/order.types.ts
+
+export type OrderStatus =
+  | 'PENDING'
+  | 'RECRUITING'
+  | 'CONFIRMED'
+  | 'ACCEPTED'
+  | 'PREPARING'
+  | 'DELIVERING'
+  | 'HUB_ARRIVED'
+  | 'PICKED_UP'
+  | 'DELIVERED'
+  | 'CANCELLED'
+  | 'REVIEWED'
+
+export type DeliveryMethod = 'direct' | 'hub' | 'parcel'
+export type SaleType = 'normal' | 'group'
+
+export interface GroupBuyConsent {
+  agreed: true
+  agreedAt: string   // ISO8601
+  userId: string
+}
+```
+
+> 세 앱과 NestJS 모두 이 파일을 import. 타입 불일치 원천 차단.
+
+---
+
+## 변경 이력
+
+| 날짜 | 내용 |
+|------|------|
+| 2026-03-26 | 초안 작성 — 1·2·3단계 설계 + CRITICAL_LOGIC.md 기반 통합 |
