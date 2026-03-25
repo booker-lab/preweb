@@ -17,6 +17,22 @@
 
 ---
 
+## apps/api 정합성 검토 완료 (2026-03-26)
+
+| 이슈 | 분류 | 수정 내용 |
+|------|------|----------|
+| OrdersService 알림 미발송 | Critical | NotificationsService 주입, 상태 전환 시 알림 연결 |
+| PENDING 타임아웃 스케줄러 중복 | Critical | NotificationsService 것 제거, PaymentsService 단독 |
+| 공동구매 마감 미달 환불 미구현 | Critical | cancelGroupBuyLack에 processRefundByOrderId 연결 |
+| refundOrder 상태 검증 없음 | Critical | ACCEPTED/RECRUITING/CONFIRMED/PREPARING만 허용 |
+| cancelOrder 환불 미처리 | Critical | processRefundByOrderId + 참여자수 트랜잭션 통합 |
+| Auth 응답 포맷 불일치 | Major | register→{userId}, login→{accessToken, user} |
+| Products 목록 응답 불일치 | Major | {items, total} + groupSummary 포함 |
+| PortoneClient 에러 처리 없음 | Major | res.ok + json.code 검증 추가 |
+| RolesGuard null 안전성 | Major | user?.role null guard 추가 |
+
+---
+
 ## apps/api 구현 완료 내역 (2026-03-26)
 
 | 모듈 | 주요 기능 | 커밋 |
