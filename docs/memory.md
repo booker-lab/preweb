@@ -2,7 +2,7 @@
 
 > **SSOT** — 세션 종료 시 항상 최신화. 200라인 초과 시 50라인 이내 요약.
 
-최종 수정: 2026-03-27 (정합성 검토 완료 — Critical/Major 전체 수정)
+최종 수정: 2026-03-27 (Railway 배포 완료 + Firestore 인덱스 배포)
 
 ---
 
@@ -16,6 +16,7 @@
 | 4단계 | API 계약 + 실제 개발 | ✅ 완료 (apps/api + apps/consumer 전체) |
 | 5단계 | 배포 준비 | ✅ 완료 (Railway + Vercel 설정) |
 | 6단계 | 정합성 검토 | ✅ 완료 (Critical/Major 전체 수정) |
+| 7단계 | Railway 실배포 | ✅ 완료 (Healthcheck 통과 · Online 상태) |
 
 ---
 
@@ -72,21 +73,35 @@ apps/consumer/src/
 
 ---
 
-## 다음 세션 최우선: 로컬 통합 테스트 → Railway/Vercel 실배포
+## 다음 세션 최우선: Vercel 배포 (`apps/consumer`)
 
-**체크리스트**: `docs/INTEGRATION_TEST.md` 순서대로 진행
-**백로그 잔여**: W-5 Kakao/Naver OAuth (키 발급 후 주석 해제만 필요)
-**참조**: `docs/CRITICAL_LOGIC.md`
+**참조**: `docs/INTEGRATION_TEST.md` 섹션 6
 
-### 배포 설정 완료 파일
+### 순서
+1. Railway API URL 확인 → Railway 콘솔 → api 서비스 → Settings → Domains
+2. Vercel 콘솔에서 `apps/consumer` 배포 (루트 디렉터리: `apps/consumer`)
+3. Vercel 환경변수 등록 (아래 표 참조)
+4. Railway `CORS_ORIGIN` 변수를 Vercel URL로 업데이트 → Redeploy
+
+### Vercel 등록 환경변수
+| 변수 | 값 |
+|------|-----|
+| `NEXTAUTH_SECRET` | `.env.local` 값 동일 |
+| `NEXTAUTH_URL` | Vercel 배포 URL (https://...) |
+| `NEXT_PUBLIC_API_URL` | Railway API URL (https://...) |
+| `NEXT_PUBLIC_FIREBASE_*` | `.env.local` 값 동일 (5개) |
+| `NEXT_PUBLIC_PORTONE_STORE_ID` | `.env.local` 값 동일 |
+| `NEXT_PUBLIC_PORTONE_KAKAOPAY_CHANNEL_KEY` | `.env.local` 값 동일 |
+
+### 배포 완료 파일
 | 파일 | 역할 |
 |------|------|
-| `apps/api/railway.toml` | Railway 빌드/배포/헬스체크 설정 |
-| `apps/api/nixpacks.toml` | monorepo pnpm 빌드 경로 |
-| `apps/api/.env.example` | API 환경변수 템플릿 |
+| `Dockerfile` | Railway 모노레포 빌드 (루트) |
+| `railway.toml` | Railway 빌드/배포/헬스체크 (루트) |
+| `apps/api/railway.toml` | Railway PORT 환경 설정 |
+| `firestore.indexes.json` | Firestore 복합 인덱스 7개 |
+| `firebase.json` | Firebase CLI 설정 |
 | `apps/consumer/vercel.json` | Vercel 빌드 커맨드 설정 |
-| `apps/consumer/.env.example` | Consumer 환경변수 템플릿 |
-| `apps/api/src/app.controller.ts` | `GET /health` 추가 |
 
 ---
 
