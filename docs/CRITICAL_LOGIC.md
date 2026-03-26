@@ -107,3 +107,27 @@ groupBuyConsent: { agreed: true, agreedAt: Timestamp, userId: string }
 
 WebSocket·Redis·SSE 별도 구성 없음. Firestore가 실시간 채널 역할 전담.
 NestJS Repository 추상화 없이 Firestore SDK 직접 사용 (이중 추상화 불필요).
+
+---
+
+## [2026-03-26] 4단계 정합성 검토 미해결 백로그
+
+### 🔴 Critical — apps/api 보완 필요 (Step 4 완료 후 일괄 처리)
+
+| # | 엔드포인트 | 파일 | 조치 |
+|---|-----------|------|------|
+| C-1 | `PATCH /stores/:storeId/products/:id/active` | `products.controller.ts` | ✅ 2026-03-26 완료 |
+| C-2 | `PATCH /stores/:storeId/orders/:id/review` | `orders.controller.ts` | ✅ 2026-03-26 완료 |
+| C-3 | `GET /stores/:storeId/daily-caps` | `products.controller.ts` | ✅ 2026-03-26 완료 |
+| C-4 | `PATCH /stores/:storeId/daily-caps/:date` | `products.controller.ts` | ✅ 2026-03-26 완료 |
+
+### 🟡 Warning — Step 5 전 보완
+
+| # | 항목 | 파일 | 조치 |
+|---|------|------|------|
+| W-1 | `GET /notifications/me` | `notifications.controller.ts` | ✅ 2026-03-26 완료 |
+| W-2 | `PATCH /notifications/me/preferences` | `notifications.controller.ts` | ✅ 2026-03-26 완료 |
+| W-3 | `GET /payments/:paymentId` | `payments.controller.ts` | ✅ 2026-03-26 완료 |
+| W-4 | `GET /stores/:storeId/orders/:id/payment` | `payments.controller.ts` | ✅ 2026-03-26 완료 |
+| W-5 | Kakao/Naver OAuth Provider | `apps/consumer/src/auth.ts` | ⏸ 키 발급 후 주석 해제 (스켈레톤 추가됨) |
+| W-6 | Firestore Timestamp → ISO8601 직렬화 | `src/common/interceptors/timestamp.interceptor.ts` | ✅ 2026-03-26 전역 인터셉터로 완료 |

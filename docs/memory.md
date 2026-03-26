@@ -2,7 +2,7 @@
 
 > **SSOT** — 세션 종료 시 항상 최신화. 200라인 초과 시 50라인 이내 요약.
 
-최종 수정: 2026-03-26 (apps/api 완료 + 정합성 검토 완료 / 포트원 채널 준비 완료)
+최종 수정: 2026-03-26 (apps/consumer Step 1~5 완료)
 
 ---
 
@@ -13,107 +13,78 @@
 | 1단계 | 요구사항 정의 | ✅ 완료 |
 | 2단계 | 정보 구조 설계 (IA) | ✅ 완료 |
 | 3단계 | 화면 설계 (Wireframe) | ✅ 완료 |
-| 4단계 | API 계약 + 실제 개발 | 🔄 진행 중 (apps/api ✅, apps/consumer 🔜) |
+| 4단계 | API 계약 + 실제 개발 | ✅ 완료 (apps/api + apps/consumer 전체) |
 
 ---
 
-## apps/api 완료 상태 (최신 커밋: c7a5831)
+## apps/consumer 완료 상태
 
-| 모듈 | 주요 기능 |
-|------|----------|
-| FirestoreModule | Global, Admin SDK, 트랜잭션 헬퍼 |
-| AuthModule | register→{userId} / login→{accessToken,user}, JWT, 배송지 CRUD, FCM |
-| ProductsModule | 상품 CRUD, {items,total}+groupSummary 응답, deliveryConfig |
-| OrdersModule | Daily Cap 트랜잭션, FSM 전환+알림연결, 취소+환불, 픽업확인 |
-| PaymentsModule | Portone webhook+금액검증, processRefundByOrderId, PENDING 15분 스케줄러 |
-| NotificationsModule | 알리고 알림톡, 공동구매 자동확정/취소(환불포함), 마감2h 알림 |
-
-**정합성 검토 수정 완료** — Critical 5건 + Major 4건 (상세: `CRITICAL_LOGIC.md` 참조)
-
----
-
-## 포트원 준비 현황 (2026-03-26)
-
-| 채널 | 상태 | 비고 |
+| Step | 내용 | 상태 |
 |------|------|------|
-| 카카오페이 (테스트) | 🔜 추가 필요 | 관리자 콘솔 → 결제 연동 → 채널 추가 |
-| 네이버페이 (테스트) | 🔜 추가 필요 | 동일 |
-| 카드/토스페이먼츠 | ⏸ MVP 완료 후 | PG 심사 1~2 영업일 소요 |
+| Step 1 | Next.js 16.2.1 스캐폴딩 + 의존성 설치 | ✅ |
+| Step 2 | PWA (manifest, withPWA, sw.js, A2HS 버튼) | ✅ |
+| Step 3 | NextAuth.js v5 Credentials Provider + 로그인 UI | ✅ |
+| Step 4 | Firestore 실시간 리스너 훅 | ✅ |
+| Step 5 | 포트원 카카오페이 결제 플로우 | ✅ |
 
-> 채널 추가 후 **채널 키** 발급 → `apps/api/.env` + `apps/consumer/.env.local`에 등록
-
-```env
-# apps/api/.env
-PORTONE_API_KEY=imp_xxxxxxxx
-PORTONE_API_SECRET=xxxxxxxxxxxxx
-
-# apps/consumer/.env.local
-NEXT_PUBLIC_PORTONE_STORE_ID=store-xxxxxxxx
-NEXT_PUBLIC_PORTONE_KAKAOPAY_CHANNEL_KEY=channel-key-xxxxxxxx
-NEXT_PUBLIC_PORTONE_NAVERPAY_CHANNEL_KEY=channel-key-xxxxxxxx
+### 주요 파일 구조
 ```
+apps/consumer/src/
+├── auth.ts                          NextAuth v5 설정 (Credentials)
+├── proxy.ts                         보호 라우트 미들웨어
+├── lib/
+│   ├── api.ts                       Bearer 토큰 자동 삽입 API 클라이언트
+│   └── firebase.ts                  Firebase 클라이언트 SDK 초기화
+├── hooks/
+│   ├── useOrderStatus.ts            orders/{orderId} 실시간 구독
+│   ├── useGroupProduct.ts           groupProductConfig/{productId} 실시간 구독
+│   ├── useDailyCap.ts               dailyCaps/{storeId_date} 실시간 구독
+│   └── usePayment.ts                주문 생성 + Portone v2 결제창 오픈
+├── types/next-auth.d.ts             세션 타입 확장
+├── app/
+│   ├── layout.tsx                   PWA 메타 + theme_color
+│   ├── login/page.tsx               이메일 로그인 UI
+│   ├── mypage/page.tsx              A2HS 버튼 포함
+│   ├── checkout/page.tsx            결제 화면 (주소 입력 + 카카오페이)
+│   ├── order/success/page.tsx       완료 화면 (Firestore 실시간 상태)
+│   └── api/auth/[...nextauth]/      NextAuth 라우트 핸들러
+└── components/A2HSButton.tsx        홈화면 추가 버튼
+```
+
+### 기술 특이사항
+- Next.js 16 기본이 Turbopack → `@ducanh2912/next-pwa` 충돌 → **`--webpack` 플래그 필수**
+- dev/build 스크립트: `next dev --webpack` / `next build --webpack`
+- proxy.ts (구 middleware.ts) — Next.js 16 파일명 변경
+- 모노레포에서 패키지 설치 시 **루트에서** `pnpm --filter consumer` 사용
 
 ---
 
-## 다음 세션 최우선 작업: apps/consumer Next.js 15 PWA
+## 다음 세션 최우선: 통합 테스트 및 Vercel/Railway 배포 준비
 
-**경로**: `C:\Develop\greenhub\apps\consumer` (현재 빈 플레이스홀더)
-
-### 작업 순서
-
-```
-Step 1 — Next.js 15 스캐폴딩
-  cd apps/consumer
-  pnpm dlx create-next-app@latest .
-  선택: TypeScript ✅ / Tailwind CSS ✅ / App Router ✅ / src/ 디렉토리 ✅
-
-Step 2 — PWA 기반 구성
-  pnpm add @ducanh2912/next-pwa
-  manifest.json (이름·아이콘·theme_color)
-  service-worker 등록
-  A2HS 버튼 → mypage/page.tsx
-
-Step 3 — NextAuth.js v5 인증
-  pnpm add next-auth@beta
-  카카오 OAuth Provider  (KAKAO_CLIENT_ID / KAKAO_CLIENT_SECRET 필요)
-  네이버 OAuth Provider  (NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 필요)
-  Credentials Provider  → POST /auth/login (NestJS) → accessToken 반환
-  세션에 accessToken 포함하여 API 요청 헤더에 삽입
-
-Step 4 — Firestore 실시간 리스너
-  pnpm add firebase (클라이언트 SDK)
-  실시간 구독 대상:
-    orders/{orderId}                    — 주문 상태 변경
-    groupProductConfig/{productId}      — 공동구매 참여 인원
-    dailyCaps/{storeId_date}            — Daily Cap 잔여 슬롯
-
-Step 5 — 결제 플로우 (Portone SDK v2)
-  pnpm add @portone/browser-sdk
-  흐름: POST /stores/:storeId/orders → portonePaymentParams 수신
-        → PortOne.requestPayment() 결제창 오픈
-        → Firestore 리스너로 orders.status 변경 감지 → 완료 화면
-  ⚠️ 포트원 채널 키 발급 선행 필요 (위 포트원 준비 현황 참조)
-```
+**백로그 잔여**: W-5 Kakao/Naver OAuth (키 발급 후 주석 해제만 필요)
+**참조**: `docs/CRITICAL_LOGIC.md`
 
 ---
 
-## 환경변수 준비 체크리스트
+## 포트원 준비 현황
 
-| 항목 | 시점 | 상태 |
-|------|------|------|
-| 포트원 API Key/Secret | Step 5 전 | 🔜 채널 추가 후 발급 |
-| 포트원 채널 키 (카카오·네이버) | Step 5 전 | 🔜 채널 추가 필요 |
-| 카카오 OAuth Client ID/Secret | Step 3 전 | ⏸ 미발급 |
-| 네이버 OAuth Client ID/Secret | Step 3 전 | ⏸ 미발급 |
-| 알리고 API Key + 발신번호 + 채널키 | 알림 테스트 전 | ⏸ 미발급 |
+| 채널 | 상태 |
+|------|------|
+| 카카오페이 (테스트) | ✅ 채널 키 발급 완료 |
+| 네이버페이 (테스트) | ⏸ Vercel 배포 후 파트너 가입 |
+| 카드 (토스페이먼츠) | ⏸ MVP 완료 후 |
 
 ---
 
-## 미완료 (LOW — 3단계 잔여, consumer 개발 중 함께 처리)
+## 환경변수 현황
 
-- [ ] PWA A2HS 버튼 — `mypage/page.tsx`
-- [ ] 환불 계좌 수정 — `mypage/refund-account/page.tsx`
-- [ ] 카드 간편결제 — `mypage/card-payment/page.tsx`
+| 항목 | 상태 |
+|------|------|
+| NEXTAUTH_SECRET | ✅ `.env.local` 등록 완료 |
+| Firebase 클라이언트 SDK 키 | ✅ `.env.local` 등록 완료 |
+| 포트원 Store ID + 카카오 채널 키 | ✅ `.env.local` 등록 완료 |
+| 카카오 OAuth Client ID/Secret | ⏸ Kakao Developers 앱 등록 후 |
+| 네이버 OAuth Client ID/Secret | ⏸ Naver Developers 앱 등록 후 |
 
 ---
 
@@ -122,8 +93,8 @@ Step 5 — 결제 플로우 (Portone SDK v2)
 | 항목 | 내용 |
 |------|------|
 | 백엔드 | NestJS · `C:\Develop\greenhub\apps\api` · Railway 배포 |
-| 프론트 | Next.js 15 · `C:\Develop\greenhub\apps\consumer` · Vercel 배포 |
-| 실시간 | Firestore 직접 리스너 (WebSocket 불필요) |
+| 프론트 | Next.js 16 · `C:\Develop\greenhub\apps\consumer` · Vercel 배포 |
+| 실시간 | Firestore 직접 리스너 |
 | 인증 | NextAuth.js v5 (프론트) + JwtAuthGuard (API) |
-| 구조 | pnpm 모노레포 · `C:\Develop\greenhub` |
-| Firebase | green-e4fe3 · asia-northeast3 · `apps/api/firebase-adminsdk.json` |
+| Firebase | green-e4fe3 · asia-northeast3 |
+| 로컬 실행 | `C:\Develop\greenhub\dev-consumer.bat` 더블클릭 → 브라우저 자동 오픈 |
