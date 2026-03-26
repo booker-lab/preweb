@@ -2,7 +2,7 @@
 
 > **SSOT** — 세션 종료 시 항상 최신화. 200라인 초과 시 50라인 이내 요약.
 
-최종 수정: 2026-03-26 (apps/consumer Step 1~5 완료)
+최종 수정: 2026-03-27 (정합성 검토 완료 — Critical/Major 전체 수정)
 
 ---
 
@@ -14,6 +14,8 @@
 | 2단계 | 정보 구조 설계 (IA) | ✅ 완료 |
 | 3단계 | 화면 설계 (Wireframe) | ✅ 완료 |
 | 4단계 | API 계약 + 실제 개발 | ✅ 완료 (apps/api + apps/consumer 전체) |
+| 5단계 | 배포 준비 | ✅ 완료 (Railway + Vercel 설정) |
+| 6단계 | 정합성 검토 | ✅ 완료 (Critical/Major 전체 수정) |
 
 ---
 
@@ -59,10 +61,32 @@ apps/consumer/src/
 
 ---
 
-## 다음 세션 최우선: 통합 테스트 및 Vercel/Railway 배포 준비
+## 정합성 검토 수정 내역 (2026-03-27)
 
+| 등급 | 수정 내용 | 파일 |
+|------|-----------|------|
+| Critical | `PATCH /auth/me/addresses/:id/default` 엔드포인트 추가 | auth.controller/service |
+| Major | `SELLER_TRANSITIONS`: `PREPARING → DELIVERING` 판매자 허용 제거 | orders.service.ts |
+| Major | `RefundController POST /refund` 외부 엔드포인트 제거 (내부 전용) | payments.controller.ts |
+| Minor | `.env.example` `KAKAOPAY_CHANNEL_KEY` 오탈자 수정 | consumer/.env.example |
+
+---
+
+## 다음 세션 최우선: 로컬 통합 테스트 → Railway/Vercel 실배포
+
+**체크리스트**: `docs/INTEGRATION_TEST.md` 순서대로 진행
 **백로그 잔여**: W-5 Kakao/Naver OAuth (키 발급 후 주석 해제만 필요)
 **참조**: `docs/CRITICAL_LOGIC.md`
+
+### 배포 설정 완료 파일
+| 파일 | 역할 |
+|------|------|
+| `apps/api/railway.toml` | Railway 빌드/배포/헬스체크 설정 |
+| `apps/api/nixpacks.toml` | monorepo pnpm 빌드 경로 |
+| `apps/api/.env.example` | API 환경변수 템플릿 |
+| `apps/consumer/vercel.json` | Vercel 빌드 커맨드 설정 |
+| `apps/consumer/.env.example` | Consumer 환경변수 템플릿 |
+| `apps/api/src/app.controller.ts` | `GET /health` 추가 |
 
 ---
 
