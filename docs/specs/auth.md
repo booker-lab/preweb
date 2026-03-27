@@ -32,14 +32,15 @@
 ## 3. 역할(Role) 시스템
 
 ```ts
-type UserRole = 'consumer' | 'seller' | 'driver'
+type UserRole = 'consumer' | 'seller' | 'driver' | 'admin'
 ```
 
-| 역할 | 대상 | 추가 클레임 |
-|------|------|------------|
-| `consumer` | 소비자 앱 사용자 | - |
-| `seller` | 판매자 (디어 오키드) | `storeId` |
-| `driver` | 배송기사 | - |
+| 역할 | 대상 | 추가 클레임 | 지원 Provider |
+|------|------|------------|--------------|
+| `consumer` | 소비자 앱 사용자 | - | 카카오, 네이버, 이메일 |
+| `seller` | 판매자 (디어 오키드) | `storeId` | **카카오, 이메일** (MVP: 네이버 미지원 — 단일 판매자이므로 불필요) |
+| `driver` | 배송기사 | - | 이메일 (운영자 수동 발급 예정) |
+| `admin` | 플랫폼 운영자(개발자 본인) | - | 이메일 (Firestore 직접 수동 설정, 1회) |
 
 JWT 페이로드 구조:
 ```ts
@@ -107,7 +108,49 @@ JWT 페이로드 구조:
 6. 원래 진입하려던 화면으로 복귀 (callbackUrl)
 ```
 
-### 5-2. 이메일 로그인
+### 5-2. 판매자 초대 토큰 가입 (A안 — MVP)
+
+```
+1. 운영자(admin)가 /admin/invite 에서 초대 토큰 생성
+   → invite_tokens/{tokenId} 문서 생성 (24시간 유효, 1회용)
+   → 판매자에게 링크 전달: seller.greenhub.kr/register?token=xxx
+
+2. 판매자가 링크 클릭
+   → NestJS GET /auth/invite/:token 토큰 유효성 검증
+
+3. 판매자가 이메일 + 비밀번호 입력 → POST /auth/register
+   { email, password, name, role: 'seller', inviteToken: token }
+
+4. NestJS:
+   - inviteToken 재검증 (만료·사용 여부)
+   - users 문서 생성 (role: 'seller')
+   - stores 문서 생성 (status: 'invited' → 'active' 자동 전환)
+   - invite_tokens 문서 usedAt 기록 (재사용 불가)
+
+5. 판매자 → 온보딩 화면(/onboarding)으로 이동
+```
+
+> **B안 전환 시**: 공개 신청 폼 추가 + `stores.status = 'pending_approval'` 저장.
+> admin 승인 화면은 이미 존재하므로 추가 개발 없음.
+
+---
+
+### `invite_tokens/{tokenId}` 스키마
+
+```ts
+{
+  id: string              // uuid
+  token: string           // 랜덤 32자 hex (URL에 노출되는 값)
+  createdBy: string       // admin userId
+  expiresAt: Timestamp    // 발급 후 24시간
+  usedAt: Timestamp | null
+  usedBy: string | null   // 가입한 판매자 userId
+}
+```
+
+---
+
+### 5-3. 이메일 로그인 (구 5-2)
 
 ```
 1. 이메일 + 비밀번호 입력
@@ -116,7 +159,7 @@ JWT 페이로드 구조:
 4. NextAuth.js Credentials Provider가 JWT를 세션에 저장
 ```
 
-### 5-3. NestJS API 요청 인증
+### 5-4. NestJS API 요청 인증 (구 5-3)
 
 ```
 1. Next.js 앱: NextAuth.js 세션에서 accessToken 추출
@@ -126,7 +169,7 @@ JWT 페이로드 구조:
 5. 통과 → 컨트롤러 실행 / 실패 → 401 or 403
 ```
 
-### 5-4. 로그인 진입 시점 (소비자 앱)
+### 5-5. 로그인 진입 시점 (소비자 앱) (구 5-4)
 
 ```
 진입 시점 A: 미로그인 상태에서 '결제하기' 클릭
@@ -262,16 +305,19 @@ PATCH /auth/me/fcm-token
 
 ## 7. 역할별 API 접근 제어
 
-| 엔드포인트 | consumer | seller | driver | 비고 |
-|------------|----------|--------|--------|------|
-| `GET /stores/:storeId/products` | ✅ | ✅ | ✅ | 공개 |
-| `POST /stores/:storeId/products` | ❌ | ✅ | ❌ | 본인 storeId만 |
-| `POST /stores/:storeId/orders` | ✅ | ❌ | ❌ | - |
-| `GET /stores/:storeId/orders/:orderId` | ✅ | ✅ | ✅ | 본인 주문 or 본인 storeId |
-| `PATCH /stores/:storeId/orders/:orderId/cancel` | ✅ | ❌ | ❌ | 본인 주문만 |
-| `PATCH /stores/:storeId/orders/:orderId/status` | 일부 | ✅ | ✅ | 역할별 허용 전환 다름 (`orders.md` 섹션 4 참조) |
-| `GET /stores/:storeId/daily-caps` | ❌ | ✅ | ❌ | - |
-| `PATCH /stores/:storeId/delivery-config` | ❌ | ✅ | ❌ | - |
+| 엔드포인트 | consumer | seller | driver | admin | 비고 |
+|------------|----------|--------|--------|-------|------|
+| `GET /stores/:storeId/products` | ✅ | ✅ | ✅ | ✅ | 공개 |
+| `POST /stores/:storeId/products` | ❌ | ✅ | ❌ | ✅ | 본인 storeId만 (admin은 전체) |
+| `POST /stores/:storeId/orders` | ✅ | ❌ | ❌ | ❌ | - |
+| `GET /stores/:storeId/orders/:orderId` | ✅ | ✅ | ✅ | ✅ | 본인 주문 or 본인 storeId (admin은 전체) |
+| `PATCH /stores/:storeId/orders/:orderId/cancel` | ✅ | ❌ | ❌ | ✅ | 본인 주문만 (admin은 강제 처리 가능) |
+| `PATCH /stores/:storeId/orders/:orderId/status` | 일부 | ✅ | ✅ | ✅ | 역할별 허용 전환 다름 (`orders.md` 섹션 4 참조) |
+| `GET /stores/:storeId/daily-caps` | ❌ | ✅ | ❌ | ✅ | - |
+| `PATCH /stores/:storeId/delivery-config` | ❌ | ✅ | ❌ | ✅ | - |
+| `GET /admin/*` | ❌ | ❌ | ❌ | ✅ | admin 전용 경로 전체 |
+
+> **admin 접근 원칙**: admin은 storeId 소유권 검증 없이 모든 storeId 데이터에 접근 가능. NestJS Guard에서 `role === 'admin'` 시 storeId 검증 우회.
 
 ---
 
@@ -294,7 +340,7 @@ PATCH /auth/me/fcm-token
 ```ts
 // packages/shared/src/auth.types.ts
 
-export type UserRole = 'consumer' | 'seller' | 'driver'
+export type UserRole = 'consumer' | 'seller' | 'driver' | 'admin'
 
 export type AuthProvider = 'kakao' | 'naver' | 'email'
 

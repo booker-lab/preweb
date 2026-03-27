@@ -25,7 +25,26 @@ MVP는 단일 판매자(`storeId: 'dear-orchid'`) 고정.
   id: string               // MVP: 'dear-orchid'
   name: string             // '디어 오키드'
   ownerId: string          // 판매자 계정 ID (NextAuth userId)
+
+  // 판매자 앱 온보딩 시 추가 입력 (판매자 설계 1단계 §3 참조)
+  businessNumber: string | null  // 사업자 등록번호
+  ceoName: string | null         // 대표자명
+  phone: string | null           // 대표 연락처
+  address: string | null         // 소재지
+  logoUrl: string | null         // Firebase Storage URL
+
+  // 판매자 계정 상태 (오늘 결정: 2026-03-28 CRITICAL_LOGIC.md 참조)
+  status: 'invited'             // 초대 토큰 발급됨, 가입 전 (A안)
+        | 'pending_approval'    // 판매자 자체 신청, 승인 대기 (B안 전환 시)
+        | 'active'              // 정상 운영 중
+        | 'rejected'            // 거절됨
+        | 'suspended'           // 운영 정지
+
+  // 정산 설정 (MVP: 0 — 수수료 없음, Phase2에서 판매자별 요율 설정)
+  commissionRate: number         // 0.0 ~ 1.0
+
   createdAt: Timestamp
+  updatedAt: Timestamp
 }
 ```
 
@@ -84,6 +103,7 @@ MVP는 단일 판매자(`storeId: 'dear-orchid'`) 고정.
   maxParticipants: number      // 최대 모집 인원 (= 공동구매 슬롯 한도)
   recruitDeadline: Timestamp   // 모집 마감일 (판매자 설정)
   currentParticipants: number  // Firestore 실시간 집계
+  isProcessed: boolean         // 마감 기한 자동 취소 처리 완료 여부 (중복 스케줄러 방지)
 
   // 배송 설정 (소비자 변경 불가)
   groupDeliveryDate: Timestamp // 배송 예정일 (판매자 지정)

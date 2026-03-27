@@ -88,6 +88,9 @@
   // 일반 판매 전용
   requestedDeliveryDate: Timestamp | null
 
+  // 판매자 입력 (PREPARING 전환 시 선택 입력)
+  preparedAt: Timestamp | null  // 드라이버 수거 예정 시간 (null이면 미설정)
+
   // 취소 정보
   cancelReason: string | null
 
@@ -196,9 +199,11 @@ GET /stores/:storeId/orders?userId=:userId&status=:status&saleType=:saleType
 
 | 파라미터 | 필수 | 설명 |
 |----------|------|------|
-| `userId` | ✅ | 본인 주문만 조회 |
+| `userId` | consumer·seller·driver: ✅ / **admin: 선택** | 본인 주문만 조회. admin은 생략 시 storeId 전체 주문 조회 |
 | `status` | - | 특정 상태 필터 |
 | `saleType` | - | `normal` \| `group` |
+
+> **admin 전용**: `userId` 생략 가능. NestJS Guard에서 `role === 'admin'` 시 userId 검증 우회.
 
 ---
 
@@ -398,6 +403,7 @@ export interface Order {
   pickupCode: string | null
   totalAmount: number
   requestedDeliveryDate: string | null   // ISO8601
+  preparedAt: string | null              // ISO8601 — 드라이버 수거 예정 시간 (판매자 설정)
   cancelReason: string | null
   groupBuyConsent: GroupBuyConsent | null
   createdAt: string   // ISO8601

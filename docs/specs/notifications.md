@@ -81,6 +81,20 @@ FCM 푸시는 PWA 설치 사용자 대상 보조 채널.
 | `GROUP_DELIVERING` | `PREPARING → DELIVERING` | **전체 참여자** | 배송 시작 |
 | `GROUP_DELIVERED` | `DELIVERING → DELIVERED` | **전체 참여자** | 배송 완료 |
 
+### 판매자 알림 (SELLER_*)
+
+> **2026-03-28 결정**: 매 주문·참여마다 알림은 과잉. 공동구매 결과(목표달성/미달취소)만 즉시 발송.
+> 일반 판매는 배치 집계 알림(`SELLER_ORDER_BATCH`)으로 대체.
+> `SELLER_NEW_ORDER`, `SELLER_ORDER_CANCELLED` 제거 — seller 앱 스캐폴딩 시 코드에서도 제거 필요.
+
+| 코드 | 트리거 | 수신자 | 내용 요약 |
+|------|--------|--------|----------|
+| `SELLER_GROUP_CONFIRMED` | `RECRUITING → CONFIRMED` | 판매자 | "OO 공동구매 목표 달성! 준비를 시작하세요." |
+| `SELLER_GROUP_CANCELLED_LACK` | `RECRUITING → CANCELLED` (미달 자동) | 판매자 | "OO 공동구매 미달 자동 취소 및 환불이 완료되었습니다." |
+| `SELLER_ORDER_BATCH` | NestJS @Cron 스케줄러 (시각 미결) | 판매자 | "오늘 N건 주문, 총 OOO원" (0건이면 미발송) |
+
+**`SELLER_ORDER_BATCH` 발송 시각**: **1일 1회 확정** (오후 8시 유력, seller 앱 착수 시 최종 확정). 0건 시 미발송.
+
 ---
 
 ## 4. 알림톡 템플릿 본문 (초안)
@@ -301,14 +315,14 @@ export type NotificationChannel = 'alimtalk' | 'fcm'
 export type NotificationStatus = 'pending' | 'sent' | 'failed'
 
 export type NotificationTemplateCode =
-  // 일반 판매
+  // 일반 판매 (소비자)
   | 'ORDER_ACCEPTED'
   | 'ORDER_PREPARING'
   | 'ORDER_DELIVERING'
   | 'ORDER_HUB_ARRIVED'
   | 'ORDER_DELIVERED'
   | 'ORDER_CANCELLED'
-  // 공동구매
+  // 공동구매 (소비자)
   | 'GROUP_JOINED'
   | 'GROUP_DEADLINE_SOON'
   | 'GROUP_CONFIRMED'
@@ -317,6 +331,10 @@ export type NotificationTemplateCode =
   | 'GROUP_PREPARING'
   | 'GROUP_DELIVERING'
   | 'GROUP_DELIVERED'
+  // 판매자 알림 (2026-03-28 확정 — 매 건 알림 제거, 배치+공동구매 결과만)
+  | 'SELLER_GROUP_CONFIRMED'
+  | 'SELLER_GROUP_CANCELLED_LACK'
+  | 'SELLER_ORDER_BATCH'         // 일반 판매 배치 집계 (발송 시각 미결)
 
 export interface Notification {
   id: string

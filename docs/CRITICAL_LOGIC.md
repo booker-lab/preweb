@@ -154,6 +154,28 @@ NestJS Repository 추상화 없이 Firestore SDK 직접 사용 (이중 추상화
 
 ---
 
+## [2026-03-28] 5차 정합성 검토 — seller 설계 문서 ↔ 전체 spec 교차 검증
+
+### 수정 완료
+
+| # | 등급 | 항목 | 파일 | 조치 |
+|---|------|------|------|------|
+| C-1 | 🔴 Critical | `products.md` stores 스키마 — 판매자 프로필 7개 필드 누락 (businessNumber 등) | `docs/specs/products.md`, `docs/소비자 설계 - 1단계 요구사항 정의.md` | ✅ 두 문서 모두 확장 필드 반영 |
+| C-2 | 🔴 Critical | `orders.md` + shared 타입 — `preparedAt` 필드 누락 | `docs/specs/orders.md` | ✅ 스키마 + Order 인터페이스에 `preparedAt: string | null` 추가 |
+| M-1 | 🟡 Major | `notifications.md` — SELLER_* 5종 템플릿 spec 미반영 (코드는 4차 검토에서 구현됨) | `docs/specs/notifications.md` | ✅ 판매자 알림 섹션 + `NotificationTemplateCode` 타입 추가 |
+| M-2 | 🟡 Major | `products.md` groupProductConfig — `isProcessed` 플래그 누락 (4차 검토 minor 수정 반영) | `docs/specs/products.md` | ✅ `isProcessed: boolean` 필드 추가 |
+| m-1 | 🟢 Minor | `auth.md` — 역할별 로그인 Provider 정책 미명시 | `docs/specs/auth.md` | ✅ seller 네이버 미지원 + 이유 명시 |
+
+### 설계 공백 — seller 앱 스캐폴딩 착수 시 spec 추가 필요
+
+| 항목 | 현황 | 조치 |
+|------|------|------|
+| `settlements` 모듈 | 스키마: 판매자 설계 1단계 §7에 정의. API·트리거 로직 미정의 | seller 앱 착수 시 `docs/specs/settlements.md` 신규 작성 |
+| `hubs` 모듈 | 스키마: 판매자 설계 1단계 §7에 정의. CRUD API 미정의 | seller 앱 착수 시 `docs/specs/hubs.md` 신규 작성 |
+| `orders.preparedAt` API 반영 | spec 업데이트 완료. NestJS `PATCH /orders/:id/status` PREPARING 전환 시 `preparedAt` 수신 필요 | seller 앱 착수 시 `orders.service.ts` 수정 |
+
+---
+
 ## [2026-03-28] 4차 정합성 검토 — seller 앱 설계 착수 전
 
 ### 수정 완료
@@ -173,6 +195,160 @@ NestJS Repository 추상화 없이 Firestore SDK 직접 사용 (이중 추상화
 |------|------|
 | 드라이버 주문 접근 제어 | driver는 storeId 범위 내 전체 주문 조회 허용 — 배송 담당자는 해당 storeId 모든 주문을 알아야 함. 드라이버 앱 설계 시 재검토 |
 | `SELLER_TRANSITIONS` 중복 항목 (`DELIVERING: ['CANCELLED']`) | `getAllowedTransitions`의 일반 취소 로직과 중복이나 명시적 선언으로 유지 — 제거 시 의도 불명확 |
+
+---
+
+## [2026-03-28] 6차 정합성 검토 — 판매자 설계 + 운영 구조 결정 반영
+
+### 수정 완료
+
+| # | 등급 | 항목 | 파일 | 조치 |
+|---|------|------|------|------|
+| C-1 | 🔴 Critical | `UserRole`에 `'admin'` 미포함 | `auth.md`, `auth.types.ts` | ✅ `'admin'` 추가, 접근 제어 테이블 반영 |
+| C-2 | 🔴 Critical | `stores` 스키마에 `status` 필드 누락 | `products.md` | ✅ 5개 값 추가 |
+| C-3 | 🔴 Critical | `settlements.status`에 `'paid'` 누락 | `판매자 설계 1단계` | ✅ `'paid'` 추가, 의미 주석 포함 |
+| M-1 | 🟡 Major | seller 초대 토큰 가입 플로우·스키마 미정의 | `auth.md` | ✅ §5-2 신규 추가 + `invite_tokens` 스키마 정의 |
+| M-2 | 🟡 Major | admin API 접근 제어 미정의 | `auth.md` | ✅ §7 테이블에 admin 컬럼 추가 + 우회 원칙 명시 |
+| M-3 | 🟡 Major | 주문 목록 조회 admin 케이스 미반영 | `orders.md` | ✅ `userId` admin 시 선택적으로 변경, 주석 추가 |
+| M-4 | 🟡 Major | 판매자 알림 "미구현" 표기 오류 | `판매자 설계 1단계` | ✅ 4차 검토 구현 완료로 현행화 |
+
+### 설계 공백 — seller 스캐폴딩 착수 시 처리
+
+| 항목 | 현황 |
+|------|------|
+| `settlements.md` spec | 스캐폴딩 착수 시 작성 |
+| `settlements.md` spec | 스캐폴딩 착수 시 작성 |
+| `hubs.md` spec | 스캐폴딩 착수 시 작성 |
+
+### [2026-03-28] 판매자 알림 정책 확정
+
+**결정**: 매 건 알림 제거 → 공동구매 결과 즉시 알림 + 일반 판매 배치 집계 알림으로 정리.
+
+| 유지 | 제거 |
+|------|------|
+| `SELLER_GROUP_CONFIRMED` — 공동구매 목표 달성 즉시 | `SELLER_NEW_ORDER` — 일반 판매 매 건 알림 (과잉) |
+| `SELLER_GROUP_CANCELLED_LACK` — 미달 자동 취소 즉시 | `SELLER_ORDER_CANCELLED` — 소비자 개인 취소 알림 (과잉) |
+| `SELLER_ORDER_BATCH` — 일반 판매 배치 집계 (신규) | |
+
+**이유**: 일반 판매 다건 운영 시 매 주문마다 알림이 오면 노이즈. 공동구매는 판매자 행동(준비 시작)이 즉시 필요하므로 실시간 유지.
+
+**코드 조치**: `SELLER_NEW_ORDER`, `SELLER_ORDER_CANCELLED` 호출부는 seller 앱 스캐폴딩 시 `orders.service.ts`에서 제거.
+
+### [2026-03-28] 온보딩 Guard 완성 조건 확정
+
+**필수 (미입력 시 `active` 전환 불가)**
+```
+name            상호명
+ceoName         대표자명
+phone           연락처
+address         소재지
+```
+
+**선택 (없어도 `active` 전환 가능)**
+```
+businessNumber  사업자등록번호
+logoUrl         로고 이미지
+```
+
+**전환 조건**: 필수 4개 모두 입력 완료 시 `stores.status: 'invited' → 'active'` 자동 전환.
+로고·사업자번호는 설정 화면에서 언제든 추가 가능.
+
+> 당근비즈 벤치마킹은 이후 Phase 2 다중 판매자 온보딩 UX 개선 시 참조 예정.
+
+### [2026-03-28] SELLER_ORDER_BATCH 발송 주기 확정
+
+**1일 1회** — 발송 시각은 seller 앱 착수 시 확정 (오후 8시 유력).
+0건이면 미발송.
+
+---
+
+## [2026-03-28] 플랫폼 운영 구조 확정 — 판매자 등록 · 수수료 · admin 역할
+
+### 결정 1: 운영자(admin) = 플랫폼 개발자 본인 + admin 앱 구조 로드맵
+
+운영자는 별도 인물이 아닌 플랫폼을 만든 개발자 본인.
+
+**admin 앱 구조 로드맵 (B→A)**
+```
+B안 (지금):   apps/seller /admin/* 경로로 통합 운영
+              판매자는 /orders·/products 등 접근
+              운영자만 /admin/* 접근 (role: 'admin' Guard)
+
+A안 (확장):   apps/admin 별도 앱으로 분리
+              분리 비용: /admin/* 페이지 파일 이동 + Vercel 프로젝트 추가 (~30분)
+              NestJS API 엔드포인트는 동일 사용 — 코드 변경 없음
+```
+
+**A안 전환 시점 판단 기준** (해당 시 분리)
+- 운영팀 인원이 생겨 admin URL을 판매자에게 노출하고 싶지 않을 때
+- admin 기능이 늘어 seller 앱 번들 크기에 영향을 줄 때
+- `admin.greenhub.kr` 별도 도메인이 필요할 때
+
+**구현 방식**: 본인 Firestore `users` 문서에 `role: 'admin'` 수동 1회 설정 → 이후 웹앱 내에서 모든 권한 보유.
+
+**admin에서 관리하는 범위**
+```
+/admin/stores        판매자 목록 · 초대 토큰 발급 · 승인 · 수수료율 설정
+/admin/users         소비자 계정 조회 · 정지/복구
+/admin/orders        전체 주문 조회 · 환불 강제 처리
+/admin/settlements   판매자별 정산 처리 (confirmed → paid 이체 완료 처리)
+/admin/invite        초대 토큰 발급 (판매자 등록 A안)
+```
+
+---
+
+### 결정 2: 판매자 등록 구조 — A안으로 시작, B안으로 확장
+
+**로드맵**
+```
+지금 (단일 판매자)   → A안: admin이 초대 토큰 생성 → 판매자가 링크로 가입
+판매자 증가 시       → B안: 판매자 자체 신청 → admin 승인
+(A→B 전환 비용 없음 — status 필드 설계만 처음부터 확장 가능하게)
+```
+
+**stores.status 확정 (처음부터 5개 값 지원)**
+```
+'invited'            A안 전용 — 초대 발송됨, 가입 전
+'pending_approval'   B안 전용 — 판매자 자체 신청, 승인 대기
+'active'             공통 — 정상 운영 중
+'rejected'           공통 — 거절됨
+'suspended'          공통 — 운영 정지
+```
+
+B안 전환 시 추가 작업: 공개 신청 폼 1개 추가 + `pending_approval` 상태로 저장.
+admin 승인 화면은 A안 때 이미 존재하므로 수정 불필요.
+
+---
+
+### 결정 3: 수수료 정산 구조 — C→B→A 단계적 확장
+
+**Portone 계정은 운영자(본인) 명의** — 모든 소비자 결제가 운영자 계좌로 수취됨.
+이로써 플랫폼이 중간에서 수수료를 떼고 판매자에게 정산하는 마켓플레이스 구조가 이미 성립.
+
+**로드맵**
+```
+C안 (지금):    commissionRate = 0 → 운영자가 전액 판매자에게 이체 (수수료 없음)
+B안 (확장):    commissionRate > 0 → settlements 기반 수동 주기 정산 (운영자가 직접 이체)
+A안 (자동화):  Portone 마켓플레이스 서브머천트 계약 → 자동 분배 (판매자 10인+ 시점)
+```
+
+**settlements.status 확정 (기존 3개 → 4개)**
+```
+'pending'    주문 진행 중
+'confirmed'  주문 완료 — 판매자 지급 대기
+'paid'       운영자가 판매자 계좌로 이체 완료  ← 신규 추가
+'cancelled'  주문 취소
+```
+
+**admin 정산 화면 역할**: `confirmed` 건 합산 → [이체 완료 처리] → `paid` + `paidAt` 기록 → 판매자 알림.
+**판매자 앱 정산 화면 역할**: 조회 전용 (`confirmed` = 입금 예정, `paid` = 입금 완료).
+
+**수수료 계산식 (변경 없음)**
+```
+commissionAmount  = totalAmount × commissionRate
+settlementAmount  = totalAmount − commissionAmount
+→ stores.commissionRate 값만 변경하면 코드 수정 불필요
+```
 
 ---
 
