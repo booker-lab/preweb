@@ -253,6 +253,20 @@ PATCH /stores/:storeId/orders/:orderId/review
 
 ---
 
+### 거점 픽업 확인 (HUB_ARRIVED → PICKED_UP)
+
+```
+PATCH /stores/:storeId/orders/:orderId/pickup-confirm
+Body: { pickupCode: string }
+```
+
+- `hub` 배송 방식 주문에서 소비자가 거점에서 수령 시 호출
+- 주문 생성 시 서버가 6자리 `pickupCode` 발급 → 거점 담당자가 확인
+- `pickupCode` 불일치 시 `400 Bad Request`
+- `HUB_ARRIVED` 상태에서만 허용
+
+---
+
 ## 5. 공동구매 자동 처리 로직
 
 ### CONFIRMED 자동 전환

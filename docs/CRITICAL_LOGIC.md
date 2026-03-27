@@ -142,7 +142,7 @@ NestJS Repository 추상화 없이 Firestore SDK 직접 사용 (이중 추상화
 
 ---
 
-## [2026-03-27] Vercel 배포 후 정합성 검토
+## [2026-03-27] 2차 정합성 검토 — Vercel 배포 후
 
 | # | 등급 | 항목 | 파일 | 조치 |
 |---|------|------|------|------|
@@ -151,3 +151,47 @@ NestJS Repository 추상화 없이 Firestore SDK 직접 사용 (이중 추상화
 | m-1 | 🟢 Minor | 상품 조회 API 미사용 (Firestore 직접 접근) | Consumer hooks | 설계 의도대로 — Firestore 직접 접근 유지 |
 | m-2 | 🟢 Minor | `/auth/me` 미사용 | Consumer | 향후 프로필 갱신 기능 추가 시 활용 |
 | m-3 | 🟢 Minor | `/notifications/*` 미사용 | Consumer | 알림 기능 구현 시 사용 예정 |
+
+---
+
+## [2026-03-28] 4차 정합성 검토 — seller 앱 설계 착수 전
+
+### 수정 완료
+
+| # | 등급 | 항목 | 파일 | 조치 |
+|---|------|------|------|------|
+| C-1 | 🔴 Critical | Webhook 후 소비자 알림 미발송 (`ORDER_ACCEPTED`, `GROUP_JOINED`) | `payments.service.ts` | ✅ handleWebhook 성공 분기에 `notifications.sendToUser` 추가 |
+| C-2 | 🔴 Critical | `PaymentsService` ↔ `NotificationsService` 순환 의존성 | `payments.module.ts`, `notifications.module.ts`, `notifications.service.ts`, `payments.service.ts` | ✅ NestJS `forwardRef()` 로 해소 |
+| C-3 | 🔴 Critical | 판매자 알림 전무 (신규주문·공동구매달성·개인취소·자동환불) | `notifications.service.ts`, `orders.service.ts` | ✅ `SELLER_*` 템플릿 4종 추가, `sendToStoreOwner` 구현 |
+| M-1 | 🟡 Major | `getOrder`/`getOrders` 판매자 storeId 소유권 검증 누락 | `orders.service.ts` | ✅ `user.storeId !== storeId` 시 403 추가 |
+| M-2 | 🟡 Major | `portonePaymentParams.merchantUid` V1 필드명 잔존 | `orders.service.ts` | ✅ 제거 — spec(`payments.md`) 기준 `{ name, amount, buyerName }` 정렬 |
+| m-1 | 🟢 Minor | 공동구매 스케줄러 매분 중복 쿼리 | `notifications.service.ts` | ✅ `groupProductConfig.isProcessed` 플래그 도입, 처리 후 `true` 설정 |
+
+### 설계 의도 확정 (코드 변경 불필요)
+
+| 항목 | 결정 |
+|------|------|
+| 드라이버 주문 접근 제어 | driver는 storeId 범위 내 전체 주문 조회 허용 — 배송 담당자는 해당 storeId 모든 주문을 알아야 함. 드라이버 앱 설계 시 재검토 |
+| `SELLER_TRANSITIONS` 중복 항목 (`DELIVERING: ['CANCELLED']`) | `getAllowedTransitions`의 일반 취소 로직과 중복이나 명시적 선언으로 유지 — 제거 시 의도 불명확 |
+
+---
+
+## [2026-03-27] 3차 정합성 검토 — 결제 E2E 테스트 완료 후
+
+### 수정 완료
+
+| # | 등급 | 항목 | 파일 | 조치 |
+|---|------|------|------|------|
+| C-1 | 🔴 Critical | `shared/payment.types.ts` Portone V1 필드명 (`portoneImpUid`, `portoneMerchantUid`) | `packages/shared/src/payment.types.ts` | ✅ V2 기준 `portonePaymentId`, `portoneTransactionId`로 변경 |
+| C-2 | 🔴 Critical | `docs/specs/payments.md` 전체가 Portone V1 기준 (webhook 포맷, 필드명, 플로우) | `docs/specs/payments.md` | ✅ Portone V2 전면 업데이트 |
+| M-1 | 🟡 Major | `pickup-confirm` 엔드포인트 스펙 미정의 | `docs/specs/orders.md` | ✅ 엔드포인트 및 동작 추가 |
+| M-2 | 🟡 Major | `POST /auth/register` Request Body에 `role` 필드 누락 | `docs/specs/auth.md` | ✅ 멀티앱 구조 설계 의도 명시 |
+| m-1 | 🟢 Minor | `PortonePaymentParams` 타입이 V1 파라미터 기준 | `packages/shared/src/payment.types.ts` | ✅ V2 SDK 파라미터로 교체 |
+
+### 설계 의도 확정 (코드 변경 불필요)
+
+| 항목 | 결정 |
+|------|------|
+| PENDING 타임아웃 스케줄러 위치 | `PaymentsService`에 위치 — 결제 도메인 책임 (PENDING은 payments 생명주기) |
+| `PaymentStatus.FAILED` 저장 누락 | PENDING 타임아웃·금액 위변조 시 payments 문서 미생성이 의도적 — 결제 자체가 성립되지 않은 케이스 |
+| `role: 'consumer'` 기본값 미적용 | 멀티앱 구조상 API가 role을 명시적으로 받는 것이 올바름 (OAuth만 consumer 기본값) |

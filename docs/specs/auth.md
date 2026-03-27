@@ -153,12 +153,16 @@ POST /auth/register
   email: string
   password: string    // 8자 이상, 클라이언트 검증
   name: string
+  role: 'consumer' | 'seller' | 'driver'  // 멀티앱 구조상 명시 필수
   phone?: string
 }
 
 // Response 201
 { userId: string }
 ```
+
+> **role 설계 의도**: consumer / seller / driver 앱이 동일한 `/auth/register` 엔드포인트를 공유하므로 role을 명시적으로 전달. OAuth(Kakao/Naver) 가입은 consumer 기본값 적용 (앱 구분 불필요).
+
 
 ---
 

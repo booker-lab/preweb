@@ -2,7 +2,16 @@
 
 > **SSOT** — 세션 종료 시 항상 최신화. 200라인 초과 시 50라인 이내 요약.
 
-최종 수정: 2026-03-27 (결제 E2E 테스트 완료)
+최종 수정: 2026-03-28 (안티그래비티 세션 — 4차 정합성 검토 완료 + seller 앱 설계 착수)
+
+## ⚡ 다음 세션 즉시 착수 포인트
+
+**4차 정합성 검토 6건 수정 완료 + 판매자 앱 1단계 설계 문서 작성 완료.**
+다음 작업:
+
+1. **판매자 앱 (`apps/seller`) 스캐폴딩 착수** — Next.js 16 PWA, 상품 등록·주문 관리부터
+2. **소비자 앱 Phase B** — `/mypage/orders/[id]` 등 서브 화면
+3. **네이버페이 파트너 가입** — Vercel URL 있으므로 가능
 
 ---
 
@@ -13,9 +22,11 @@
 | 1~3단계 | 요구사항 · IA · 와이어프레임 | ✅ |
 | 4단계 | API 계약 + apps/api + apps/consumer 구현 | ✅ |
 | 5단계 | 배포 준비 (Railway + Vercel 설정) | ✅ |
-| 6단계 | 정합성 검토 (1차) | ✅ |
+| 6단계 | 1~4차 정합성 검토 전면 완료 | ✅ |
 | 7단계 | Railway 실배포 | ✅ |
-| 8단계 | Vercel 실배포 + 정합성 검토 (2차) | ✅ |
+| 8단계 | Vercel 실배포 | ✅ |
+| 9단계 | 결제 E2E 테스트 (KakaoPay) | ✅ |
+| 10단계 | seller 앱 설계 1단계 | ✅ 문서 완료 |
 
 ---
 
@@ -49,50 +60,31 @@
 - Vercel Root Directory: **`apps/consumer`** (모노레포 루트 아님)
 - `apps/consumer/vercel.json` buildCommand: `shared 빌드 → consumer 빌드` 순서 필수
 - `proxy.ts` (구 `middleware.ts`) — Next.js 16 파일명 변경
+- `useOrderStatus`: PWA SW가 Firebase SDK 스트리밍 가로채 → Firestore REST API 폴링 대체
 
 ---
 
-## Vercel 환경변수 (10개 등록 완료)
+## 4차 정합성 검토 수정 내역 (2026-03-28)
 
-`NEXT_PUBLIC_API_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`,
-`NEXT_PUBLIC_FIREBASE_*` (6개), `NEXT_PUBLIC_PORTONE_STORE_ID`, `NEXT_PUBLIC_PORTONE_KAKAOPAY_CHANNEL_KEY`
-
----
-
-## 정합성 검토 이력
-
-### 1차 (2026-03-26) — 개발 완료 후
-| 등급 | 수정 내용 |
-|------|-----------|
-| Critical | `PATCH /auth/me/addresses/:id/default` 엔드포인트 추가 |
-| Major | `SELLER_TRANSITIONS` PREPARING→DELIVERING 판매자 제거 |
-| Major | `RefundController POST /refund` 외부 엔드포인트 제거 |
-
-### 2차 (2026-03-27) — Vercel 배포 후
-| 등급 | 수정 내용 |
-|------|-----------|
-| Critical | PWA 아이콘 생성 (`public/icons/icon-192x192.png`, `icon-512x512.png`) |
-| Major | `portonePaymentParams.buyerName`: userId → Firestore users 조회 후 name 사용 |
+| 등급 | 항목 | 파일 |
+|------|------|------|
+| 🔴 Critical | Webhook 후 소비자 알림 미발송 | `payments.service.ts` |
+| 🔴 Critical | PaymentsService ↔ NotificationsService 순환 의존성 | `payments.module.ts`, `notifications.module.ts` |
+| 🔴 Critical | 판매자 알림 전무 (4종 템플릿 추가) | `notifications.service.ts`, `orders.service.ts` |
+| 🟡 Major | getOrder/getOrders 판매자 storeId 소유권 검증 누락 | `orders.service.ts` |
+| 🟡 Major | portonePaymentParams V1 필드명 잔존 | `orders.service.ts` |
+| 🟢 Minor | 공동구매 스케줄러 중복 쿼리 | `notifications.service.ts` (`isProcessed` 플래그) |
 
 ---
 
-## 결제 E2E 테스트 결과 (2026-03-27 완료)
+## seller 앱 설계 (2026-03-28 착수)
 
-- KakaoPay 3,100원 결제 성공 → Portone V2 웹훅 → 주문 ACCEPTED → `/order/success` 표시 ✅
-- **Portone V2 마이그레이션 완료**: portone.client.ts, portone-webhook.dto.ts, payments.service.ts
-- **Firestore Security Rules 배포**: `orders/*` allow read: if true
-- **useOrderStatus**: PWA SW 충돌로 Firebase SDK 동작 불가 → Firestore REST API 폴링으로 대체 (CRITICAL_LOGIC.md 기록)
-
----
-
-## 다음 세션 우선순위
-
-### 1순위 — seller 앱 착수
-- `apps/seller` Next.js 스캐폴딩
-- 판매자: 상품 관리, 주문 관리, Daily Cap 설정
-
-### 2순위 — 네이버페이 파트너 가입
-- `docs/memory_payment.md` (결제 수단 도입 계획) 참조
+- 설계 문서: `docs/판매자 설계 - 1단계 요구사항 정의.md`
+- 별도 URL, 모바일 우선 PWA, 데스크톱 반응형
+- MVP 단일 판매자, storeId 구조로 다중 판매자 확장 가능
+- 수수료율: MVP commissionRate=0, 향후 다중 판매자 시 per-store 적용
+- 신규 DB 스키마: `settlements` 컬렉션, `hubs` 컬렉션, `orders.preparedAt` 필드
+- 신규 API 모듈 필요: `settlements` module, `hubs` module
 
 ---
 
