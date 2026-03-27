@@ -2,138 +2,104 @@
 
 > **SSOT** — 세션 종료 시 항상 최신화. 200라인 초과 시 50라인 이내 요약.
 
-최종 수정: 2026-03-27 (Railway 배포 완료 + Firestore 인덱스 배포)
+최종 수정: 2026-03-27 (결제 E2E 테스트 완료)
 
 ---
 
-## 현재 단계
+## 전체 진행 상태
 
 | 단계 | 내용 | 상태 |
 |------|------|------|
-| 1단계 | 요구사항 정의 | ✅ 완료 |
-| 2단계 | 정보 구조 설계 (IA) | ✅ 완료 |
-| 3단계 | 화면 설계 (Wireframe) | ✅ 완료 |
-| 4단계 | API 계약 + 실제 개발 | ✅ 완료 (apps/api + apps/consumer 전체) |
-| 5단계 | 배포 준비 | ✅ 완료 (Railway + Vercel 설정) |
-| 6단계 | 정합성 검토 | ✅ 완료 (Critical/Major 전체 수정) |
-| 7단계 | Railway 실배포 | ✅ 완료 (Healthcheck 통과 · Online 상태) |
+| 1~3단계 | 요구사항 · IA · 와이어프레임 | ✅ |
+| 4단계 | API 계약 + apps/api + apps/consumer 구현 | ✅ |
+| 5단계 | 배포 준비 (Railway + Vercel 설정) | ✅ |
+| 6단계 | 정합성 검토 (1차) | ✅ |
+| 7단계 | Railway 실배포 | ✅ |
+| 8단계 | Vercel 실배포 + 정합성 검토 (2차) | ✅ |
 
 ---
 
-## apps/consumer 완료 상태
+## 배포 현황
 
-| Step | 내용 | 상태 |
-|------|------|------|
-| Step 1 | Next.js 16.2.1 스캐폴딩 + 의존성 설치 | ✅ |
-| Step 2 | PWA (manifest, withPWA, sw.js, A2HS 버튼) | ✅ |
-| Step 3 | NextAuth.js v5 Credentials Provider + 로그인 UI | ✅ |
-| Step 4 | Firestore 실시간 리스너 훅 | ✅ |
-| Step 5 | 포트원 카카오페이 결제 플로우 | ✅ |
-
-### 주요 파일 구조
-```
-apps/consumer/src/
-├── auth.ts                          NextAuth v5 설정 (Credentials)
-├── proxy.ts                         보호 라우트 미들웨어
-├── lib/
-│   ├── api.ts                       Bearer 토큰 자동 삽입 API 클라이언트
-│   └── firebase.ts                  Firebase 클라이언트 SDK 초기화
-├── hooks/
-│   ├── useOrderStatus.ts            orders/{orderId} 실시간 구독
-│   ├── useGroupProduct.ts           groupProductConfig/{productId} 실시간 구독
-│   ├── useDailyCap.ts               dailyCaps/{storeId_date} 실시간 구독
-│   └── usePayment.ts                주문 생성 + Portone v2 결제창 오픈
-├── types/next-auth.d.ts             세션 타입 확장
-├── app/
-│   ├── layout.tsx                   PWA 메타 + theme_color
-│   ├── login/page.tsx               이메일 로그인 UI
-│   ├── mypage/page.tsx              A2HS 버튼 포함
-│   ├── checkout/page.tsx            결제 화면 (주소 입력 + 카카오페이)
-│   ├── order/success/page.tsx       완료 화면 (Firestore 실시간 상태)
-│   └── api/auth/[...nextauth]/      NextAuth 라우트 핸들러
-└── components/A2HSButton.tsx        홈화면 추가 버튼
-```
-
-### 기술 특이사항
-- Next.js 16 기본이 Turbopack → `@ducanh2912/next-pwa` 충돌 → **`--webpack` 플래그 필수**
-- dev/build 스크립트: `next dev --webpack` / `next build --webpack`
-- proxy.ts (구 middleware.ts) — Next.js 16 파일명 변경
-- 모노레포에서 패키지 설치 시 **루트에서** `pnpm --filter consumer` 사용
-
----
-
-## 정합성 검토 수정 내역 (2026-03-27)
-
-| 등급 | 수정 내용 | 파일 |
-|------|-----------|------|
-| Critical | `PATCH /auth/me/addresses/:id/default` 엔드포인트 추가 | auth.controller/service |
-| Major | `SELLER_TRANSITIONS`: `PREPARING → DELIVERING` 판매자 허용 제거 | orders.service.ts |
-| Major | `RefundController POST /refund` 외부 엔드포인트 제거 (내부 전용) | payments.controller.ts |
-| Minor | `.env.example` `KAKAOPAY_CHANNEL_KEY` 오탈자 수정 | consumer/.env.example |
-
----
-
-## 다음 세션 최우선: Vercel 배포 (`apps/consumer`)
-
-**참조**: `docs/INTEGRATION_TEST.md` 섹션 6
-
-### 순서
-1. Railway API URL 확인 → Railway 콘솔 → api 서비스 → Settings → Domains
-2. Vercel 콘솔에서 `apps/consumer` 배포 (루트 디렉터리: `apps/consumer`)
-3. Vercel 환경변수 등록 (아래 표 참조)
-4. Railway `CORS_ORIGIN` 변수를 Vercel URL로 업데이트 → Redeploy
-
-### Vercel 등록 환경변수
-| 변수 | 값 |
+| 항목 | 값 |
 |------|-----|
-| `NEXTAUTH_SECRET` | `.env.local` 값 동일 |
-| `NEXTAUTH_URL` | Vercel 배포 URL (https://...) |
-| `NEXT_PUBLIC_API_URL` | Railway API URL (https://...) |
-| `NEXT_PUBLIC_FIREBASE_*` | `.env.local` 값 동일 (5개) |
-| `NEXT_PUBLIC_PORTONE_STORE_ID` | `.env.local` 값 동일 |
-| `NEXT_PUBLIC_PORTONE_KAKAOPAY_CHANNEL_KEY` | `.env.local` 값 동일 |
-
-### 배포 완료 파일
-| 파일 | 역할 |
-|------|------|
-| `Dockerfile` | Railway 모노레포 빌드 (루트) |
-| `railway.toml` | Railway 빌드/배포/헬스체크 (루트) |
-| `apps/api/railway.toml` | Railway PORT 환경 설정 |
-| `firestore.indexes.json` | Firestore 복합 인덱스 7개 |
-| `firebase.json` | Firebase CLI 설정 |
-| `apps/consumer/vercel.json` | Vercel 빌드 커맨드 설정 |
+| Railway API | `https://api-production-13e7.up.railway.app` · Online |
+| Vercel Consumer | `https://greenhubconsumer.vercel.app` · Ready |
+| Firebase | `green-e4fe3` · asia-northeast3 |
+| GitHub | `booker-lab/greenhub` |
+| 모노레포 | `C:\Develop\greenhub` |
 
 ---
 
-## 포트원 준비 현황
+## 아키텍처
+
+| 항목 | 내용 |
+|------|------|
+| 백엔드 | NestJS · `apps/api` · Railway |
+| 프론트 | Next.js 16 · `apps/consumer` · Vercel |
+| 실시간 | Firestore 리스너 (결제완료 화면은 REST API 폴링 — PWA SW 충돌) |
+| 인증 | NextAuth.js v5 + JwtAuthGuard |
+| 로컬 실행 | `dev-consumer.bat` 더블클릭 |
+
+---
+
+## 기술 특이사항
+
+- Next.js 16 Turbopack → `@ducanh2912/next-pwa` 충돌 → **`--webpack` 플래그 필수**
+- Vercel Root Directory: **`apps/consumer`** (모노레포 루트 아님)
+- `apps/consumer/vercel.json` buildCommand: `shared 빌드 → consumer 빌드` 순서 필수
+- `proxy.ts` (구 `middleware.ts`) — Next.js 16 파일명 변경
+
+---
+
+## Vercel 환경변수 (10개 등록 완료)
+
+`NEXT_PUBLIC_API_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`,
+`NEXT_PUBLIC_FIREBASE_*` (6개), `NEXT_PUBLIC_PORTONE_STORE_ID`, `NEXT_PUBLIC_PORTONE_KAKAOPAY_CHANNEL_KEY`
+
+---
+
+## 정합성 검토 이력
+
+### 1차 (2026-03-26) — 개발 완료 후
+| 등급 | 수정 내용 |
+|------|-----------|
+| Critical | `PATCH /auth/me/addresses/:id/default` 엔드포인트 추가 |
+| Major | `SELLER_TRANSITIONS` PREPARING→DELIVERING 판매자 제거 |
+| Major | `RefundController POST /refund` 외부 엔드포인트 제거 |
+
+### 2차 (2026-03-27) — Vercel 배포 후
+| 등급 | 수정 내용 |
+|------|-----------|
+| Critical | PWA 아이콘 생성 (`public/icons/icon-192x192.png`, `icon-512x512.png`) |
+| Major | `portonePaymentParams.buyerName`: userId → Firestore users 조회 후 name 사용 |
+
+---
+
+## 결제 E2E 테스트 결과 (2026-03-27 완료)
+
+- KakaoPay 3,100원 결제 성공 → Portone V2 웹훅 → 주문 ACCEPTED → `/order/success` 표시 ✅
+- **Portone V2 마이그레이션 완료**: portone.client.ts, portone-webhook.dto.ts, payments.service.ts
+- **Firestore Security Rules 배포**: `orders/*` allow read: if true
+- **useOrderStatus**: PWA SW 충돌로 Firebase SDK 동작 불가 → Firestore REST API 폴링으로 대체 (CRITICAL_LOGIC.md 기록)
+
+---
+
+## 다음 세션 우선순위
+
+### 1순위 — seller 앱 착수
+- `apps/seller` Next.js 스캐폴딩
+- 판매자: 상품 관리, 주문 관리, Daily Cap 설정
+
+### 2순위 — 네이버페이 파트너 가입
+- `docs/memory_payment.md` (결제 수단 도입 계획) 참조
+
+---
+
+## 포트원 현황
 
 | 채널 | 상태 |
 |------|------|
 | 카카오페이 (테스트) | ✅ 채널 키 발급 완료 |
-| 네이버페이 (테스트) | ⏸ Vercel 배포 후 파트너 가입 |
+| 네이버페이 (테스트) | ⏸ 파트너 가입 필요 (Vercel URL 있으므로 가능) |
 | 카드 (토스페이먼츠) | ⏸ MVP 완료 후 |
-
----
-
-## 환경변수 현황
-
-| 항목 | 상태 |
-|------|------|
-| NEXTAUTH_SECRET | ✅ `.env.local` 등록 완료 |
-| Firebase 클라이언트 SDK 키 | ✅ `.env.local` 등록 완료 |
-| 포트원 Store ID + 카카오 채널 키 | ✅ `.env.local` 등록 완료 |
-| 카카오 OAuth Client ID/Secret | ⏸ Kakao Developers 앱 등록 후 |
-| 네이버 OAuth Client ID/Secret | ⏸ Naver Developers 앱 등록 후 |
-
----
-
-## 아키텍처 확정
-
-| 항목 | 내용 |
-|------|------|
-| 백엔드 | NestJS · `C:\Develop\greenhub\apps\api` · Railway 배포 |
-| 프론트 | Next.js 16 · `C:\Develop\greenhub\apps\consumer` · Vercel 배포 |
-| 실시간 | Firestore 직접 리스너 |
-| 인증 | NextAuth.js v5 (프론트) + JwtAuthGuard (API) |
-| Firebase | green-e4fe3 · asia-northeast3 |
-| 로컬 실행 | `C:\Develop\greenhub\dev-consumer.bat` 더블클릭 → 브라우저 자동 오픈 |
