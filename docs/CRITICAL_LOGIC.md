@@ -94,19 +94,27 @@ groupBuyConsent: { agreed: true, agreedAt: Timestamp, userId: string }
 
 ---
 
-## [2026-03-25] 실시간 데이터 전략 확정 (변경 없음)
+## [2026-03-25] 실시간 데이터 전략 확정
 
-### 결정: Firestore 직접 리스너 유지
+### 결정: Firestore 직접 리스너 유지 (단, 결제 완료 화면 예외)
 
 | 데이터 | 방식 |
 |--------|------|
-| 주문 상태 변경 | Firestore 실시간 리스너 |
+| 주문 상태 변경 (결제 완료 화면) | **Firestore REST API 폴링 3초** ← [2026-03-27] 변경 |
 | 공동구매 참여 인원 (`currentParticipants`) | Firestore 실시간 리스너 |
 | Daily Cap 잔여량 (`usedSlots`) | Firestore 실시간 리스너 |
 | 결제 검증·환불·알림 | NestJS API |
 
 WebSocket·Redis·SSE 별도 구성 없음. Firestore가 실시간 채널 역할 전담.
 NestJS Repository 추상화 없이 Firestore SDK 직접 사용 (이중 추상화 불필요).
+
+### [2026-03-27] useOrderStatus: onSnapshot → REST API 폴링 변경
+
+**원인**: PWA Service Worker(`@ducanh2912/next-pwa`)가 Firebase SDK의 내부 HTTP/2 스트리밍 요청을 가로채 응답하지 않음. `onSnapshot`, `getDoc` 모두 동일하게 실패. Firestore REST API 직접 `fetch()`는 정상 동작 확인.
+
+**결정**: `/order/success` 페이지의 `useOrderStatus`는 Firebase SDK 대신 `https://firestore.googleapis.com/v1/...` REST API를 직접 호출하는 3초 폴링으로 대체. 결제 완료 화면은 밀리초 단위 실시간이 불필요하므로 UX 영향 없음.
+
+**향후**: PWA Service Worker에 Firebase URL 예외 처리 추가 시 `onSnapshot` 복구 가능.
 
 ---
 
@@ -131,3 +139,15 @@ NestJS Repository 추상화 없이 Firestore SDK 직접 사용 (이중 추상화
 | W-4 | `GET /stores/:storeId/orders/:id/payment` | `payments.controller.ts` | ✅ 2026-03-26 완료 |
 | W-5 | Kakao/Naver OAuth Provider | `apps/consumer/src/auth.ts` | ⏸ 키 발급 후 주석 해제 (스켈레톤 추가됨) |
 | W-6 | Firestore Timestamp → ISO8601 직렬화 | `src/common/interceptors/timestamp.interceptor.ts` | ✅ 2026-03-26 전역 인터셉터로 완료 |
+
+---
+
+## [2026-03-27] Vercel 배포 후 정합성 검토
+
+| # | 등급 | 항목 | 파일 | 조치 |
+|---|------|------|------|------|
+| C-1 | 🔴 Critical | PWA 아이콘 누락 | `public/icons/*.png` | ✅ 192x192, 512x512 생성 완료 |
+| M-1 | 🟡 Major | `portonePaymentParams.buyerName`에 userId 사용 | `orders.service.ts` | ✅ users Firestore 조회 후 name 사용으로 수정 |
+| m-1 | 🟢 Minor | 상품 조회 API 미사용 (Firestore 직접 접근) | Consumer hooks | 설계 의도대로 — Firestore 직접 접근 유지 |
+| m-2 | 🟢 Minor | `/auth/me` 미사용 | Consumer | 향후 프로필 갱신 기능 추가 시 활용 |
+| m-3 | 🟢 Minor | `/notifications/*` 미사용 | Consumer | 알림 기능 구현 시 사용 예정 |
