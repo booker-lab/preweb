@@ -9,10 +9,10 @@
 
 | 순위 | 항목 | 범주 |
 |------|------|------|
-| ⭐ 1 | `/hubs/[id]` 거점 상세 + `/hubs/[id]/pickup` 픽업 코드 확인 | seller 앱 |
-| ⭐ 2 | Vercel seller 배포 + Firebase 인덱스 배포 + Railway 재배포 | 인프라 |
+| ⭐ 1 | 소비자 앱 E2E 테스트 (카카오페이 결제 → seller 앱 처리) | 테스트 |
+| ⭐ 2 | 소비자 앱 Phase B (마이페이지 서브 화면) | consumer 앱 |
 | 🟡 3 | `/admin/*` 관리자 영역 5개 페이지 | seller 앱 |
-| 🟡 4 | 소비자 앱 Phase B (마이페이지 서브 화면) | consumer 앱 |
+| 🟡 4 | 네이버페이 파트너 가입 | 외부 연동 |
 | 🟡 5 | 네이버페이 파트너 가입 | 외부 연동 |
 | 💡 6 | 카드 결제 PG사 계약 | 외부 연동 |
 | 🔵 7 | 다중 판매자 상점 페이지 (소비자 앱) | Phase 2 |
@@ -38,7 +38,7 @@
 ### 1-2. 인증 / 온보딩
 
 - [x] `/login` — 이메일 + 카카오 OAuth
-- [x] `/onboarding` — 사업자 프로필 → `PATCH /stores/:storeId` 연결
+- [x] `/onboarding` — 신규 seller `POST /stores` 생성 + session.update storeId 반영
 - [ ] Firebase Storage 로고 업로드 → `logoUrl` 저장 (선택)
 
 ### 1-3. 주문 관리 (`/orders`)
@@ -49,6 +49,7 @@
 - [x] `/orders/[id]` 주문 상세
   - 상품·수량·금액·배송 정보 표시
   - "준비 시작" 버튼 (preparedAt datetime 입력) → `PATCH .../status { PREPARING }`
+  - **"배송 시작" 버튼** (PREPARING → DELIVERING) ✅ 2026-03-28 추가
   - "강제 취소" 모달 (사유 최소 5자) → `PATCH .../status { CANCELLED }`
   - 읽기 전용 상태 (배송 중 이후)
 
@@ -146,6 +147,7 @@
 ### 이번 세션 추가 완료
 
 - [x] **hub-confirm**: `PATCH /stores/:storeId/orders/:orderId/hub-confirm` — seller JWT + pickupCode 검증 → PICKED_UP
+- [x] **POST /stores**: 신규 seller 스토어 생성 + user.storeId 업데이트 (2026-03-28)
 
 ### 미구현 API
 
@@ -187,17 +189,17 @@
 
 ### 5-1. Firebase 인덱스 배포
 
-- [ ] `firebase deploy --only firestore:indexes` (settlements·hubs 인덱스 4개 신규)
+- [x] settlements·hubs 인덱스 4개 배포 완료
+- [x] `orders storeId+createdAt DESC` 인덱스 추가 (2026-03-28)
 
 ### 5-2. Vercel seller 배포
 
-- [ ] Vercel 새 프로젝트 생성 (Root Directory: `apps/seller`)
-- [ ] 환경변수: `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `NEXT_PUBLIC_API_URL`, Firebase 설정 (`NEXT_PUBLIC_FIREBASE_*`)
-- [ ] Railway `CORS_ORIGIN`에 seller Vercel URL 추가
+- [x] `greenhub-seller.vercel.app` 배포 완료 (2026-03-28)
+- [x] Railway `CORS_ORIGIN`에 seller URL 추가
 
 ### 5-3. Railway API 재배포
 
-- [ ] 이번 세션 변경사항(C-1·C-2·C-3) 반영 배포
+- [x] C-1·C-2·C-3 + hub-confirm + POST /stores 반영 완료 (2026-03-28)
 
 ---
 
@@ -254,7 +256,7 @@
 
 - [ ] 협력 업체를 seller 앱 `/hubs`에서 거점으로 등록
 - [ ] 소비자 앱 배송 수단 선택 화면에서 `hub` 옵션 노출 조건 해제
-- [ ] seller 앱 `/hubs/[id]` 거점 상세 + `/hubs/[id]/pickup` 픽업 코드 확인 화면 구현 (현재 1순위 백로그)
+- [x] seller 앱 `/hubs/[id]` 거점 상세 + `/hubs/[id]/pickup` 픽업 코드 확인 화면 구현
 
 ### Phase 2 고도화 (계약 후 운영 안정화 시점)
 
@@ -272,3 +274,4 @@
 | 2026-03-28 | stores·settlements·hubs API + seller 앱 핵심 화면 완료 체크 / 7차 정합성 검토 반영 |
 | 2026-03-28 | 다중 판매자 §6 추가, 거점 배송 §8 추가 |
 | 2026-03-28 | **8차 정합성 검토**: C-1~C-3 수정 완료, /products 폼 구현 완료, 우선순위 재정비 |
+| 2026-03-28 | **배포 완료**: Vercel seller + Railway + Firebase 인덱스 / seller 온보딩 버그 수정 / E2E 동작 확인 |
