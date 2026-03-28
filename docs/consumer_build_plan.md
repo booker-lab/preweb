@@ -129,11 +129,12 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 
 ---
 
-## 🔲 Phase B — 마이페이지 서브 화면
+## ✅ Phase B — 마이페이지 서브 화면
 
-- [ ] `/mypage/orders/[id]` — 주문 상태 조회
+- [x] `/mypage` — 주문 목록 + 프로필 + 로그아웃 (2026-03-29)
+- [x] `/mypage/orders/[id]` — 상태 타임라인 + 픽업 코드 + 구매 확정 버튼 (2026-03-29)
 - [ ] `/mypage/addresses` — 배송지 관리 (`PATCH /auth/me/addresses/:id/default` 포함)
-- [ ] `/mypage/refund-account` — 환불 계좌
+- [ ] `/mypage/notifications` — 알림 내역 (`GET /notifications/me`)
 
 ---
 

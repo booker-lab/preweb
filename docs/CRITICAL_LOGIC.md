@@ -295,6 +295,38 @@ DTO에 해당 필드가 없어 `forbidNonWhitelisted` 검증에서 400 반환.
 
 ---
 
+## [2026-03-29] 마이페이지 Phase B 구현 — 기술 결정 사항
+
+### 결정 1: consumer 주문 목록 — Firestore runQuery → NestJS API
+
+**원인**: Firestore 보안 규칙이 단일 문서 `get`은 허용하나 컬렉션 `list`(runQuery POST)는 차단.
+
+**결정**: `GET /stores/:storeId/orders?userId={id}` NestJS 엔드포인트로 대체.
+- 인증 토큰 사용으로 보안 향상
+- Firestore 규칙 수정 없이 해결
+
+**수정된 서비스 응답**: `getOrders`가 `{ orders: [...] }` → `Order[]` 평탄화 + `id` 포함.
+seller 앱은 Firestore SDK 직접 사용이라 영향 없음.
+
+### 결정 2: NextAuth v5 beta.30 — session.user.id 명시적 전달 필수
+
+`token.sub → session.user.id` 자동 매핑이 beta.30에서 불안정.
+`jwt` 콜백에 `token.id = user.id`, `session` 콜백에 `session.user.id = token.id` 명시 필수.
+`next-auth.d.ts`에 `id: string` 타입 추가.
+
+### 결정 3: ssr: false 동적 import 패턴
+
+`useSession`을 사용하는 페이지는 Next.js 정적 프리렌더 시 SessionProvider 미존재로 오류.
+`page.tsx`(`'use client'`) → `next/dynamic(() => import('./_client'), { ssr: false })`로 래핑.
+`force-dynamic`만으로는 클라이언트 훅 프리렌더를 막을 수 없음.
+
+### 결정 4: 네이버페이 가입 시점 — 도메인 확정 후
+
+네이버페이 파트너센터는 실제 운영 URL 필수. 도메인·브랜드명 확정 전 가입 불가.
+브랜드명 변경은 manifest.json + 화면 텍스트만 수정하면 되므로 코드 영향 없음.
+
+---
+
 ## [2026-03-28] 플랫폼 운영 구조 확정 — 판매자 등록 · 수수료 · admin 역할
 
 ### 결정 1: 운영자(admin) = 플랫폼 개발자 본인 + admin 앱 구조 로드맵
@@ -550,3 +582,27 @@ const sellerCancellable = ['ACCEPTED', 'CONFIRMED', 'PREPARING']
 ### 미이행 설계 결정
 
 없음 — 전항목 수정 완료.
+
+---
+
+## [2026-03-29] 10차 정합성 검토 — 버그 3건·스펙 불일치 2건
+
+### 수정 완료
+
+| # | 등급 | 항목 | 파일 | 조치 |
+|---|------|------|------|------|
+| B-1/B-2 | 🔴 Critical | 공동구매 `PREPARING→DELIVERING`, `DELIVERING→DELIVERED` 알림이 `ORDER_*` 템플릿으로 인해 개인 발송 → `sendToGroupParticipants` 조건 미통과 | `orders.service.ts` | ✅ `sendTransitionNotification`에 `GROUP_TEMPLATE_OVERRIDES` 추가, group 주문 시 `GROUP_DELIVERING` / `GROUP_DELIVERED` 사용 |
+| B-3 | 🔴 Critical | `sendToGroupParticipants` 쿼리가 `status in ['RECRUITING','CONFIRMED']` 고정 → PREPARING/DELIVERING 상태 참여자에게 알림 0건 발송 | `notifications.service.ts` | ✅ 전체 쿼리 후 `['PENDING','CANCELLED','REVIEWED']` 앱 레이어 제외 방식으로 변경 |
+| S-1 | 🟡 Major | `orders.md` Section 3 Firestore 스키마, Section 9 `Order` 인터페이스 정의에 `hubId` 필드 누락 (코드에는 존재, 변경이력에만 기록) | `docs/specs/orders.md` | ✅ Section 3·9 모두 `hubId: string \| null` 추가 |
+
+### 설계 결정 확정 (S-2)
+
+**일반 판매 소비자 취소(`ACCEPTED` 상태) — 현재 불가, 향후 결정 보류**
+
+| 항목 | 내용 |
+|------|------|
+| 현재 코드 | `cancelOrder`는 `RECRUITING` 상태만 허용 → `ACCEPTED` 상태에서 소비자 취소 시 `403` 반환 |
+| 스펙 기술 | `orders.md` §4: "CONFIRMED 이후 소비자 직접 취소 거부"만 명시, ACCEPTED 취소 여부 미기술 |
+| **결정** | **ACCEPTED 소비자 취소 불가로 유지** — MVP 단계에서 결제 완료 즉시 판매자에게 준비 지시가 가는 구조이므로 취소 허용 시 운영 부담 |
+| 영향 범위 | 허용으로 변경 시: `cancelOrder` 조건 수정 + `GROUP_CANCELLED_SELF` → 일반 판매용 템플릿(`ORDER_CANCELLED_SELF`) 추가 필요 |
+| 향후 검토 | 주문량 증가로 결제~준비 간격이 생기면 "n분 이내 무료 취소" 정책 도입 검토 |
