@@ -262,6 +262,39 @@ logoUrl         로고 이미지
 
 ---
 
+## [2026-03-29] 결제 E2E 테스트 완료 — 발견된 버그 및 수정 결정
+
+### 버그 1: Portone V2 웹훅 DTO 400 에러
+
+**현상**: Portone이 웹훅 전송 시 `timestamp`(최상위)와 `data.transactionId` 필드를 포함하나,
+DTO에 해당 필드가 없어 `forbidNonWhitelisted` 검증에서 400 반환.
+
+**수정**: `portone-webhook.dto.ts`에 두 필드를 `@IsOptional()`로 추가.
+
+### 버그 2: Transaction.Ready 웹훅 오처리
+
+**현상**: Portone V2는 결제창 오픈 시 `Transaction.Ready` 이벤트를 먼저 발송.
+기존 코드가 `type !== 'Transaction.Paid'` 조건으로 즉시 주문 CANCELLED 처리.
+결제 완료 후 `Transaction.Paid`가 도착해도 이미 CANCELLED라 무시됨.
+
+**수정**: `payments.service.ts`에서 `Transaction.Ready` 타입을 명시적으로 무시(early return).
+
+**Portone V2 웹훅 이벤트 순서**:
+```
+결제창 오픈 → Transaction.Ready (무시)
+결제 완료   → Transaction.Paid  (처리: PENDING→ACCEPTED)
+결제 실패   → Transaction.Failed (처리: PENDING→CANCELLED)
+```
+
+### 버그 3: Firestore Timestamp NaN 표시
+
+**현상**: `onSnapshot`으로 받은 `createdAt`이 Firestore Timestamp 객체라
+`new Date(createdAt)`이 NaN 반환 → "NaN일 전" 표시.
+
+**수정**: `toDate()` 메서드 존재 여부로 분기 처리.
+
+---
+
 ## [2026-03-28] 플랫폼 운영 구조 확정 — 판매자 등록 · 수수료 · admin 역할
 
 ### 결정 1: 운영자(admin) = 플랫폼 개발자 본인 + admin 앱 구조 로드맵
@@ -501,3 +534,19 @@ const sellerCancellable = ['ACCEPTED', 'CONFIRMED', 'PREPARING']
 - seller 앱 `/admin` 영역 구축 시 함께 설계
 
 **트리거**: 운영 거점 협력 업체 계약 확정 시점
+
+---
+
+## [2026-03-28] 9차 정합성 검토 — seller 앱 완성 후 교차 검증
+
+### 수정 완료
+
+| # | 등급 | 항목 | 파일 | 조치 |
+|---|------|------|------|------|
+| C-1 | 🔴 Critical | `SELLER_TRANSITIONS` — `PREPARING → DELIVERING` 미포함 → 판매자 "배송 시작" 버튼 403 오류 | `orders.service.ts` | ✅ `PREPARING: ['DELIVERING']` 추가 (드라이버 앱 미완성 전까지 판매자 임시 수행, 주석 명시) |
+| C-2 | 🔴 Critical | seller `orders/[id]/page.tsx` — `'groupProductConfigs'` (s 있음) 오타 → 공동구매 정보 항상 null | `apps/seller/src/app/orders/[id]/page.tsx:106` | ✅ `'groupProductConfig'` (s 없음)으로 수정 |
+| M-1 | 🟡 Major | `orders.md` §9 `CreateOrderRequest` — `hubId?: string` 미반영 | `docs/specs/orders.md` | ✅ `hubId?: string` 추가 + 변경 이력 기록 |
+
+### 미이행 설계 결정
+
+없음 — 전항목 수정 완료.
