@@ -1,6 +1,6 @@
 # Green Hub — 앞으로 할 작업 백로그
 
-> 기준일: 2026-03-28 (5차 정합성 검토 + seller 앱 1단계 설계 완료 시점)
+> 기준일: 2026-03-28 (7차 정합성 검토 + seller 앱 핵심 화면 완료 시점)
 > 완료 작업 전체 이력은 `CRITICAL_LOGIC.md`, `memory.md` 참조
 
 ---
@@ -9,169 +9,164 @@
 
 | 순위 | 항목 | 범주 |
 |------|------|------|
-| ⭐ 1 | seller 앱 스캐폴딩 + 핵심 화면 구현 | 신규 앱 |
-| ⭐ 2 | settlements · hubs NestJS 모듈 + spec | API 신규 |
-| ⭐ 3 | 소비자 앱 Phase B (서브 화면) | 기존 앱 보완 |
-| ⭐ 4 | 네이버페이 파트너 가입 | 외부 연동 |
-| ⭐ 5 | Vercel seller 배포 | 인프라 |
-| 💡 6 | 카드 결제 PG사 계약 | 외부 연동 |
+| ⭐ 1 | `/orders/[id]` 주문 상세 화면 | seller 앱 |
+| ⭐ 2 | `/products/new` + `/products/[id]/edit` 상품 등록·수정 | seller 앱 |
+| ⭐ 3 | `/hubs/[id]` 거점 상세 + `/hubs/[id]/pickup` 픽업 코드 확인 | seller 앱 |
+| ⭐ 4 | Vercel seller 배포 + Railway CORS 업데이트 | 인프라 |
+| 🟡 5 | `/admin/*` 관리자 영역 5개 페이지 | seller 앱 |
+| 🟡 6 | 소비자 앱 Phase B (마이페이지 서브 화면) | consumer 앱 |
+| 🟡 7 | 네이버페이 파트너 가입 | 외부 연동 |
+| 💡 8 | 카드 결제 PG사 계약 | 외부 연동 |
 
 ---
 
-## 1. seller 앱 스캐폴딩 (`apps/seller`)
+## 1. seller 앱 (`apps/seller`)
 
-> 설계 문서: `docs/판매자 설계 - 1단계 요구사항 정의.md`
-> 기술 스택: Next.js (App Router) + NextAuth.js v5 + Tailwind CSS
-> 배포: Vercel (별도 프로젝트, Root Directory: `apps/seller`)
+> 설계 문서: `docs/판매자 설계 - 1단계 요구사항 정의.md`, `docs/판매자 설계 - 2단계 IA.md`
+> 배포: Vercel (Root Directory: `apps/seller`)
 
-### 1-1. 초기 스캐폴딩
+### 1-1. 인프라 / 공통
 
-- [ ] `apps/seller` Next.js 생성 + pnpm workspace 등록
-- [ ] `@greenhub/shared` 의존성 연결
-- [ ] NextAuth.js v5 설정 — 이메일 + 카카오 Provider, `role: 'seller'`
-- [ ] PWA 설정 — manifest.json, Service Worker (소비자 앱과 동일 방식)
-- [ ] Tailwind CSS + 공통 레이아웃 (사이드바 or 하단 탭 — 모바일 우선)
-- [ ] `proxy.ts` (Next.js 16 middleware 파일명) — 미로그인 시 /login 리다이렉트
+- [x] `apps/seller` Next.js 16 스캐폴딩 + pnpm workspace 등록
+- [x] `@greenhub/shared` 의존성 연결
+- [x] NextAuth.js v5 — 이메일 + 카카오 Provider, `role: 'seller'`
+- [x] PWA — manifest.json, Service Worker
+- [x] Tailwind CSS + 하단 탭 5개 (`BottomNav.tsx`)
+- [x] `proxy.ts` — 미로그인→/login, storeId 없음→/onboarding
+- [x] `src/lib/api.ts` — `apiFetch` 헬퍼 (Bearer 토큰 자동 주입)
 
-### 1-2. 판매자 온보딩
+### 1-2. 인증 / 온보딩
 
-- [ ] 로그인 화면 (`/login`) — 이메일 + 카카오 OAuth
-- [ ] 최초 로그인 후 사업자 프로필 설정 화면 (`/onboarding`)
-  - 상호명, 사업자등록번호, 대표자명, 연락처, 소재지, 로고 이미지
-  - Firebase Storage SDK로 로고 업로드 → URL 저장
-  - `PATCH /stores/:storeId` API 호출 (신규 엔드포인트 — API 보완 필요)
-- [ ] 프로필 미완성 시 모든 화면 접근 차단 (Guard)
+- [x] `/login` — 이메일 + 카카오 OAuth
+- [x] `/onboarding` — 사업자 프로필 → `PATCH /stores/:storeId` 연결
+- [ ] Firebase Storage 로고 업로드 → `logoUrl` 저장 (선택)
 
-### 1-3. 주문 관리 대시보드 (`/orders`) ← Must Have
+### 1-3. 주문 관리 (`/orders`)
 
-- [ ] Firestore 실시간 리스너 기반 주문 목록
-- [ ] 상태별 탭 필터 5종
-  - **처리 필요** (ACCEPTED, CONFIRMED)
-  - **준비 중** (PREPARING)
-  - **배송 중** (DELIVERING, HUB_ARRIVED)
-  - **완료** (DELIVERED, PICKED_UP, REVIEWED)
-  - **취소** (CANCELLED)
-- [ ] 상태 전환 버튼
-  - "준비 시작" — ACCEPTED/CONFIRMED → PREPARING + `preparedAt` 시간 선택(선택)
-  - "강제 취소" — 사유 입력 모달 → `PATCH .../status { status: 'CANCELLED', reason }`
-- [ ] 주문 카드: 상품명, 소비자명, 결제금액, 배송수단, 주문시각
+- [x] Firestore 실시간 리스너 기반 주문 목록
+- [x] 상태별 탭 5종 + 배지
+- [x] 주문 카드 — 결제금액, 배송수단, 주문시각
+- [ ] **`/orders/[id]` 주문 상세 ← 1순위**
+  - 상품명·수량·금액·배송 정보 표시
+  - "준비 시작" 버튼 (preparedAt datetime 입력) → `PATCH .../status { PREPARING }`
+  - "강제 취소" 모달 (사유 최소 5자) → `PATCH .../status { CANCELLED }`
+  - 읽기 전용 상태 (배송 중 이후)
 
-### 1-4. 상품 관리 (`/products`) ← Must Have
+### 1-4. 상품 관리 (`/products`)
 
-- [ ] 상품 목록 (`GET /stores/:storeId/products`)
-- [ ] 상품 등록 폼 (`POST /stores/:storeId/products`)
-  - 상품명, 가격, 카테고리, 색상(멀티), 배송사이즈
-  - 판매방식 선택: 일반 / 공동구매
-  - 공동구매 설정 필드 (조건부 노출): 최소·최대인원, 마감일, 배송예정일, 배송수단, 할인배송비
-  - 이미지 업로드 — Firebase Storage SDK
-- [ ] 상품 수정 · 활성/비활성 토글
-- [ ] 상품 삭제
+- [x] 상품 목록 — Firestore 실시간 리스너
+- [x] 활성/비활성 토글
+- [ ] **`/products/new` 상품 등록 폼 ← 2순위**
+  - 판매 방식 선택 탭 (일반 / 공동구매)
+  - 공통 필드: 상품명·가격·카테고리·색상(멀티)·배송사이즈·이미지(최대 5장)
+  - 공동구매 전용: 최소·최대 인원, 모집 마감일, 배송 예정일, 배송 수단
+  - `POST /stores/:storeId/products`
+- [ ] **`/products/[id]/edit` 상품 수정 ← 2순위**
+  - `GET /stores/:storeId/products/:id` 로드 후 폼 pre-fill
+  - `PATCH /stores/:storeId/products/:id`
+- [ ] 상품 삭제 버튼 (`DELETE /stores/:storeId/products/:id`)
 
-### 1-5. Daily Cap 관리 (`/daily-caps`) ← Must Have
+### 1-5. 정산 관리 (`/settlements`)
 
-- [ ] 달력 UI — 날짜별 잔여 슬롯 시각화
-- [ ] 날짜 선택 → totalCap 수정 (`PATCH /stores/:storeId/daily-caps/:date`)
-- [ ] `GET /stores/:storeId/daily-caps?from=&to=` 월별 조회
+- [x] 일별 요약 탭 — `GET .../settlements/summary?date=`
+- [x] 기간별 조회 탭 — `GET .../settlements?from=&to=`
+- [x] 주문별 상세 탭
+- [ ] (Should Have) CSV 다운로드
 
-### 1-6. 배송 설정 (`/settings/delivery`) ← Must Have
+### 1-6. 거점 관리 (`/hubs`)
 
-- [ ] 배송수단별 기본 배송비 + 무료 기준 금액 수정
-  - `PATCH /stores/:storeId/delivery-config`
-- [ ] **기상 제한 On/Off 토글** — `weatherRestrictionActive`
-  - 활성화 시 소비자 결제 화면 택배 자동 비활성
+- [x] 거점 목록 — `GET /stores/:storeId/hubs`
+- [x] 활성/비활성 토글 — `PATCH .../hubs/:hubId`
+- [x] 삭제 — `DELETE .../hubs/:hubId`
+- [x] `/hubs/new` 거점 등록 폼 — `POST .../hubs`
+- [ ] **`/hubs/[id]` 거점 상세 ← 3순위**
+  - 픽업 대기 주문 목록 (status: HUB_ARRIVED, 해당 hubId 필터)
+  - 주문 행 클릭 → 픽업 코드 확인으로 이동
+- [ ] **`/hubs/[id]/pickup` 픽업 코드 확인 ← 3순위**
+  - 6자리 수동 입력 UI (각 자리 분리)
+  - (Nice to Have) 바코드 스캔
+  - `PATCH .../orders/:orderId/pickup-confirm { pickupCode }`
 
-### 1-7. 정산/매출 관리 (`/settlements`) ← Must Have (API 신규 개발 필요)
+### 1-7. 설정 (`/settings`)
 
-- [ ] 일별 요약: 금일 완료 건수 · 총 매출 · 정산 예정액
-- [ ] 기간별 조회: 달력 필터 → 합계 (총 매출 / 수수료 / 정산금)
-- [ ] 주문별 상세: 상품가 + 배송비 - 수수료 = 정산금
-- [ ] (Should Have) 기간별 CSV 다운로드
+- [x] `/settings` 메뉴 페이지
+- [x] `/settings/delivery` — 배송비 6개 필드 + 기상 제한 토글
+- [x] `/settings/daily-caps` — 달력 UI + 날짜별 슬롯 수정
 
-### 1-8. 거점(Hub) 관리 (`/hubs`) ← Must Have (API 신규 개발 필요)
+### 1-8. 관리자 영역 (`/admin/*`) — Phase 2
 
-- [ ] 거점 목록 · 등록 · 수정 · 삭제 (`hubs` 컬렉션 CRUD)
-- [ ] 거점별 픽업 대기 주문 목록 (status: HUB_ARRIVED)
-- [ ] 픽업 코드 확인 화면 — 6자리 수동 입력 또는 바코드 스캔
+> B안: seller 앱 내 `/admin` 경로. 규모 확장 시 `apps/admin` 분리(A안).
+
+- [ ] `/admin/stores` — 판매자 목록 + 초대 토큰 발급 + 승인
+- [ ] `/admin/users` — 소비자 계정 조회·정지·복구
+- [ ] `/admin/orders` — 전체 주문 조회·환불 강제 처리
+- [ ] `/admin/settlements` — 판매자별 정산 처리 (이체 완료)
+- [ ] `/admin/invite` — 초대 토큰 발급
 
 ---
 
-## 2. API 신규 모듈 (`apps/api`)
+## 2. API (`apps/api`)
 
-### 2-1. settlements 모듈 ← seller 앱 착수와 동시 진행
+### 완료된 신규 모듈 (이번 세션)
 
-> spec: 스캐폴딩 착수 시 `docs/specs/settlements.md` 신규 작성
+- [x] `PATCH /stores/:storeId` — 판매자 온보딩 프로필 저장 (소유권 Guard + 온보딩 완료 자동 active)
+- [x] settlements 모듈 — `GET .../settlements?from=&to=`, `GET .../settlements/summary?date=`
+- [x] settlements 자동 생성 트리거 — REVIEWED / DELIVERED / PICKED_UP 시
+- [x] hubs 모듈 — CRUD `GET/POST/PATCH/DELETE /stores/:storeId/hubs`
+- [x] `firestore.indexes.json` — settlements(storeId+settledAt), hubs(storeId+createdAt) 인덱스 추가
 
-- [ ] `settlements` Firestore 컬렉션 스키마 확정
-- [ ] 자동 생성 트리거: `orders.service.ts`에서 REVIEWED / DELIVERED / PICKED_UP 도달 시
-  - `settlements` 레코드 생성 (status: 'confirmed')
-  - 취소(CANCELLED) 시 `status: 'cancelled'` 즉시 반영
-- [ ] API 엔드포인트
-  - `GET /stores/:storeId/settlements?from=&to=` — 기간별 조회
-  - `GET /stores/:storeId/settlements/summary?date=` — 일별 요약
-- [ ] commissionRate 스냅샷 저장 (나중에 요율 변경돼도 정산금 불변)
+### 미구현 API
 
-### 2-2. hubs 모듈 ← seller 앱 착수와 동시 진행
-
-> spec: 스캐폴딩 착수 시 `docs/specs/hubs.md` 신규 작성
-
-- [ ] `hubs` Firestore 컬렉션 스키마 확정
-- [ ] API 엔드포인트
-  - `GET /stores/:storeId/hubs`
-  - `POST /stores/:storeId/hubs`
-  - `PATCH /stores/:storeId/hubs/:hubId`
-  - `DELETE /stores/:storeId/hubs/:hubId`
-
-### 2-3. stores 프로필 업데이트 엔드포인트
-
-- [ ] `PATCH /stores/:storeId` — 판매자 온보딩 프로필 저장
-  - businessNumber, ceoName, phone, address, logoUrl
-  - Guard: JWT seller role + storeId 일치 검증
+- [ ] 거점 픽업 대기 주문 조회 — `GET /stores/:storeId/hubs/:hubId/orders?status=HUB_ARRIVED`
+- [ ] settlements 취소 반영 — 주문 CANCELLED 시 `status: 'cancelled'` 업데이트 (orders.service.ts cancelOrder/updateStatus)
+- [ ] 관리자 API (`/admin/*`) — stores·users·orders·settlements CRUD
 
 ---
 
 ## 3. 소비자 앱 Phase B (`apps/consumer`)
 
-> 현재 핵심 결제 흐름 완료. 보조 화면 미구현.
+### 마이페이지 서브 화면
 
-### 3-1. 마이페이지 서브 화면
-
-- [ ] 주문 상세 (`/mypage/orders/[id]`) — 상태 타임라인 + 픽업 코드 표시
-- [ ] 후기 작성 화면 — DELIVERED/PICKED_UP → REVIEWED 전환
+- [ ] `/mypage/orders/[id]` — 상태 타임라인 + 픽업 코드 표시
+- [ ] 후기 작성 — DELIVERED/PICKED_UP → REVIEWED 전환
 - [ ] 배송지 관리 (`/mypage/addresses`) — 저장 배송지 CRUD
 - [ ] 알림 내역 (`/mypage/notifications`) — `GET /notifications/me`
 
-### 3-2. 상품 화면 보완 (Should Have)
+### 상품 화면 보완 (Should Have)
 
-- [ ] 상품 상세 하단 판매자 정보 노출 (`stores` 데이터 연동)
-  - 상호명, 로고, 연락처 (logoUrl이 있을 때만)
+- [ ] 상품 상세 하단 판매자 정보 노출 (상호명·로고·연락처)
 
 ---
 
 ## 4. 외부 연동
 
-### 4-1. 네이버페이 파트너 가입
+### 4-1. 네이버페이
 
-- [ ] Vercel URL (`https://greenhubconsumer.vercel.app`) 제출
-- [ ] 파트너 가입 완료 후 채널키 발급 → Railway 환경변수 추가
-- [ ] `PORTONE_NAVER_CHANNEL_KEY` 환경변수 설정
-- [ ] 소비자 앱 네이버페이 버튼 활성화 (현재 주석 처리 상태 확인 필요)
+- [ ] Vercel URL 제출 후 파트너 가입
+- [ ] 채널키 발급 → `PORTONE_NAVER_CHANNEL_KEY` 환경변수
+- [ ] 소비자 앱 네이버페이 버튼 활성화
 
 ### 4-2. 카드 결제 (MVP 완료 후)
 
-- [ ] Portone 가입 + KG이니시스 또는 NHN KCP 계약 신청 (심사 2~5 영업일)
-- [ ] 채널키 발급 → `pay_method: 'card'` 추가 (코드 변경 없음)
+- [ ] Portone + KG이니시스 또는 NHN KCP 계약 신청
 
 ---
 
 ## 5. 인프라 · 배포
 
-### 5-1. Vercel seller 배포
+### 5-1. Firebase 인덱스 배포
 
-- [ ] Vercel 새 프로젝트 생성
-- [ ] Root Directory: `apps/seller`
-- [ ] `apps/seller/vercel.json` buildCommand: shared 빌드 선행 (소비자 앱과 동일 패턴)
-- [ ] 환경변수: `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `API_URL`, Firebase 설정
-- [ ] CORS_ORIGIN에 seller Vercel URL 추가 (`Railway` 환경변수 업데이트)
+- [ ] `firebase deploy --only firestore:indexes` (settlements·hubs 인덱스 4개 신규)
+
+### 5-2. Vercel seller 배포
+
+- [ ] Vercel 새 프로젝트 생성 (Root Directory: `apps/seller`)
+- [ ] 환경변수: `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `NEXT_PUBLIC_API_URL`, Firebase 설정
+- [ ] Railway `CORS_ORIGIN`에 seller Vercel URL 추가
+
+### 5-3. Railway API 재배포
+
+- [ ] 신규 모듈(stores·settlements·hubs) 반영 배포
 
 ---
 
@@ -181,8 +176,8 @@
 |------|------|------|
 | 드라이버 앱 | `apps/driver` 스캐폴딩 | seller 앱 완료 후 |
 | 다중 판매자 Phase 2 | 판매자 자체 가입 → 플랫폼 승인 플로우 | 비즈니스 요청 시 |
-| 카카오 알림톡 정식 등록 | 템플릿 심사 (약 1~3 영업일) | 실제 사용자 서비스 전 |
-| PWA 푸시 (FCM) | Should Have — firebase-messaging-sw.js | seller 완료 후 |
+| 카카오 알림톡 정식 등록 | 템플릿 심사 (~1~3 영업일) | 실제 사용자 서비스 전 |
+| PWA 푸시 (FCM) | firebase-messaging-sw.js | seller 완료 후 |
 | 밀크런 경로 프리뷰 | Kakao Maps API — 거점 순회 경로 시각화 | Should Have |
 | 리뷰·평점 시스템 | Nice to Have | Phase 2 |
 
@@ -192,4 +187,6 @@
 
 | 날짜 | 내용 |
 |------|------|
-| 2026-03-28 | 초안 작성 — 5차 정합성 검토 완료 시점 기준 전체 백로그 문서화 |
+| 2026-03-28 | 초안 작성 — 5차 정합성 검토 완료 시점 |
+| 2026-03-28 | seller 앱 스캐폴딩 + Firestore 연동 완료 체크 |
+| 2026-03-28 | stores·settlements·hubs API + seller 앱 핵심 화면 완료 체크 / 7차 정합성 검토 반영 |
