@@ -17,6 +17,7 @@
 | 🟡 6 | 소비자 앱 Phase B (마이페이지 서브 화면) | consumer 앱 |
 | 🟡 7 | 네이버페이 파트너 가입 | 외부 연동 |
 | 💡 8 | 카드 결제 PG사 계약 | 외부 연동 |
+| 🔵 9 | 다중 판매자 상점 페이지 (소비자 앱) | Phase 2 |
 
 ---
 
@@ -170,16 +171,73 @@
 
 ---
 
-## 6. 보류 / 장기 과제
+## 6. 다중 판매자 확장 — Phase 2 (`apps/consumer` + `apps/api`)
+
+> MVP는 단일 판매자(dear-orchid) 하드코딩 구조. 다중 판매자 등록 시 아래 작업으로 확장.
+
+### 6-1. API 추가
+
+- [ ] `GET /stores` — active 상점 목록 (이름·로고·주소·카테고리 요약)
+- [ ] `GET /stores/:storeId` — 상점 상세 + 해당 상점 상품 목록
+
+### 6-2. 소비자 앱 화면 추가
+
+- [ ] `app/stores/page.tsx` — 상점 목록 (카드 그리드: 로고·상호명·거점 수·판매 상품 수)
+- [ ] `app/stores/[storeId]/page.tsx` — 상점 상세 (프로필 + 판매 상품 + 운영 거점 목록)
+- [ ] 홈 화면 하드코딩 `STORE_ID = 'dear-orchid'` → 동적 `storeId` 처리로 전환
+  - 수정 파일: `app/products/[id]/page.tsx`, `app/checkout/page.tsx`, `hooks/usePayment.ts`
+
+### 6-3. 판매자 앱 연동 포인트
+
+> **추가 개발 불필요** — 판매자 온보딩 시 입력한 `name·address·phone·logoUrl`이 이미 Firestore `stores` 컬렉션에 저장됨. 소비자 앱이 `GET /stores/:storeId` 로 그대로 읽어 노출.
+
+### 6-4. 확장 시 상점 상세 페이지 구성 요소
+
+- 상점명·대표자·소개·로고·주소
+- 운영 거점(hubs) 목록
+- 판매 중인 상품 목록
+- 공동구매 진행 현황
+
+---
+
+## 7. 보류 / 장기 과제
 
 | 항목 | 내용 | 시점 |
 |------|------|------|
 | 드라이버 앱 | `apps/driver` 스캐폴딩 | seller 앱 완료 후 |
+| **거점 배송 오픈** | 아래 §8 참조 | **운영 거점 계약 확정 시** |
 | 다중 판매자 Phase 2 | 판매자 자체 가입 → 플랫폼 승인 플로우 | 비즈니스 요청 시 |
 | 카카오 알림톡 정식 등록 | 템플릿 심사 (~1~3 영업일) | 실제 사용자 서비스 전 |
 | PWA 푸시 (FCM) | firebase-messaging-sw.js | seller 완료 후 |
 | 밀크런 경로 프리뷰 | Kakao Maps API — 거점 순회 경로 시각화 | Should Have |
 | 리뷰·평점 시스템 | Nice to Have | Phase 2 |
+
+---
+
+## 8. 거점 배송 오픈 — 협력 업체 계약 확정 시
+
+> **현재 상태**: 코드·FSM·API 모두 구현 완료. 소비자 앱에서 UI만 비노출 중.
+> **오픈 조건**: 운영 거점(협력 업체 — 꽃집·과일가게 등) 계약 확정 시 즉시 활성화 가능.
+
+### 이미 완료된 것 (추가 개발 불필요)
+
+- `deliveryMethod: 'hub'` 타입·스키마·API 전체
+- 주문 상태 `HUB_ARRIVED` · `PICKED_UP` FSM
+- `pickupCode` 6자리 발급·저장·확인 (`PATCH .../pickup-confirm`)
+- seller 앱 거점 CRUD (`/hubs`, `/hubs/new`)
+- 알림톡 발송 트리거 (`DELIVERING → HUB_ARRIVED` 시 픽업 코드 안내)
+
+### 오픈 시 필요한 작업 (최소 수준)
+
+- [ ] 협력 업체를 seller 앱 `/hubs`에서 거점으로 등록
+- [ ] 소비자 앱 배송 수단 선택 화면에서 `hub` 옵션 노출 조건 해제
+- [ ] seller 앱 `/hubs/[id]` 거점 상세 + `/hubs/[id]/pickup` 픽업 코드 확인 화면 구현 (현재 3순위 백로그)
+- [ ] API `GET /stores/:storeId/hubs/:hubId/orders?status=HUB_ARRIVED` 구현
+
+### Phase 2 고도화 (계약 후 운영 안정화 시점)
+
+- [ ] QR 스캔 기반 픽업 인증 (현재 6자리 코드 수동 입력 방식)
+- [ ] 지도 기반 실시간 위치 추적 (현재 타임라인 피드 방식)
 
 ---
 
@@ -190,3 +248,5 @@
 | 2026-03-28 | 초안 작성 — 5차 정합성 검토 완료 시점 |
 | 2026-03-28 | seller 앱 스캐폴딩 + Firestore 연동 완료 체크 |
 | 2026-03-28 | stores·settlements·hubs API + seller 앱 핵심 화면 완료 체크 / 7차 정합성 검토 반영 |
+| 2026-03-28 | 다중 판매자 상점 페이지 Phase 2 항목 추가 (§6) |
+| 2026-03-28 | 거점 배송 오픈 조건·작업 목록 상세 기록 (§8) |

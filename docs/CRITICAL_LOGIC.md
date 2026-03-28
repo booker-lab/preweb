@@ -371,3 +371,27 @@ settlementAmount  = totalAmount − commissionAmount
 | PENDING 타임아웃 스케줄러 위치 | `PaymentsService`에 위치 — 결제 도메인 책임 (PENDING은 payments 생명주기) |
 | `PaymentStatus.FAILED` 저장 누락 | PENDING 타임아웃·금액 위변조 시 payments 문서 미생성이 의도적 — 결제 자체가 성립되지 않은 케이스 |
 | `role: 'consumer'` 기본값 미적용 | 멀티앱 구조상 API가 role을 명시적으로 받는 것이 올바름 (OAuth만 consumer 기본값) |
+
+---
+
+## [2026-03-28] 판매자 강제 취소 권한 범위 확정
+
+### 결정: 판매자 취소는 PREPARING 이전까지만
+
+**허용 범위**
+```
+ACCEPTED   → CANCELLED  ✅
+CONFIRMED  → CANCELLED  ✅
+PREPARING  → CANCELLED  ✅  (드라이버 출발 전 단계)
+DELIVERING 이후         ❌  불가
+```
+
+**이유**
+- 발송(`DELIVERING`) 이후 판매자 일방 취소는 표준 e-커머스에 없는 개념
+- 드라이버가 이미 상품을 픽업한 상태에서 취소 시 상품 회수 처리 주체가 모호
+- 발송 후 분쟁은 소비자가 반품 신청 → 판매자 수락 루트로만 처리
+
+**영향 범위**
+- `docs/specs/orders.md` §4 상태 전환 허용 목록 수정 완료
+- `apps/seller/src/app/orders/[id]/page.tsx` `canCancel` 조건 수정 완료
+- NestJS Guard 구현 시 `DELIVERING` 이후 판매자 `CANCELLED` 전환 요청 → `403` 반환

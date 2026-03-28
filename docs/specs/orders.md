@@ -220,7 +220,7 @@ PATCH /stores/:storeId/orders/:orderId/cancel
 
 **처리 규칙**
 - `RECRUITING` 상태: 취소 허용 → Portone 환불 API → `CANCELLED` + `currentParticipants` -1
-- `CONFIRMED` 이후: **취소 거부** `403` (계약 성립 시점, 판매자 생산 시작)
+- `CONFIRMED` 이후: **소비자 직접 취소 거부** `403` (계약 성립 시점, 판매자 생산 시작)
 - 환불 소요: 카드 3~5 영업일, 간편결제 1~3일
 
 ---
@@ -240,10 +240,14 @@ PATCH /stores/:storeId/orders/:orderId/status
 
 | 호출 주체 | 허용 전환 |
 |-----------|----------|
-| 판매자 | `ACCEPTED → PREPARING`, `CONFIRMED → PREPARING`, `* → CANCELLED` |
+| 판매자 | `ACCEPTED → PREPARING`, `CONFIRMED → PREPARING`, `ACCEPTED → CANCELLED`, `CONFIRMED → CANCELLED`, `PREPARING → CANCELLED` |
 | 드라이버 | `PREPARING → DELIVERING`, `DELIVERING → HUB_ARRIVED`, `DELIVERING → DELIVERED` |
 | 시스템 (스케줄러) | `RECRUITING → CONFIRMED`, `RECRUITING → CANCELLED` (마감 기한) |
 | 소비자 | `DELIVERED → REVIEWED`, `PICKED_UP → REVIEWED` |
+
+> **설계 결정 (2026-03-28)**: 판매자 강제 취소는 `DELIVERING` 이전(`ACCEPTED` · `CONFIRMED` · `PREPARING`)까지만 허용.
+> 발송(`DELIVERING`) 이후에는 소비자가 반품 신청 → 판매자 수락 루트로만 처리.
+> 발송 후 판매자 일방 취소는 표준 e-커머스에 없는 개념이며, 드라이버가 이미 상품을 픽업한 상태에서 취소 시 상품 회수 처리가 모호해지는 운영 문제가 있음. (`CRITICAL_LOGIC.md` §판매자 취소 권한 참조)
 
 ---
 
