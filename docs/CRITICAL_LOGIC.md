@@ -444,3 +444,60 @@ DELIVERING 이후         ❌  불가
 - AI 사진 분석 자동 글 작성 ❌ (MVP 범위 초과)
 - 거래 희망 장소 ❌ → 배송 수단으로 대체
 - 가격 제안 받기 ❌ (고정가 구조)
+
+---
+
+## [2026-03-28] 8차 정합성 검토 — 코드 수정 사항
+
+### C-1. 판매자 강제 취소 권한 API 반영 완료
+
+**수정 파일**: `apps/api/src/orders/orders.service.ts`
+
+`SELLER_TRANSITIONS`에서 `DELIVERING: ['CANCELLED']`, `HUB_ARRIVED: ['CANCELLED']` 제거.
+`getAllowedTransitions` 내 광범위한 CANCELLED 추가 로직을 **허용 상태 화이트리스트** 방식으로 교체:
+```typescript
+const sellerCancellable = ['ACCEPTED', 'CONFIRMED', 'PREPARING']
+```
+발송 이후 단계(DELIVERING·HUB_ARRIVED)에서 판매자 취소 차단. 소비자 반품 신청 루트로만 처리.
+
+### C-1-b. seller UI 취소 사유 필드명 불일치 수정
+
+`orders/[id]/page.tsx` `handleCancel` 에서 `cancelReason` → `reason` 으로 수정.
+`UpdateStatusDto.reason` 필드와 일치. 취소 사유가 Firestore `cancelReason`에 정상 저장됨.
+
+### 상품 등록 폼 구현 완료
+
+**신규 파일**:
+- `apps/seller/src/app/products/_components/ProductForm.tsx` (443줄)
+- `apps/seller/src/app/products/_components/ImageUpload.tsx` (96줄)
+- `apps/seller/src/app/products/new/page.tsx`
+- `apps/seller/src/app/products/[id]/edit/page.tsx`
+
+**deliveryFeeDiscount MVP 결정**: 공동구매 배송비 할인 필드는 등록 폼에서 숨기고 `0` 고정.
+공동구매 배송비 할인 정책 확정 전까지 노출 보류.
+
+---
+
+## [2026-03-28] 거점 픽업 확인 방식 — MVP vs Phase 2 결정
+
+### MVP: 패턴 C (seller 주도 코드 입력 방식)
+
+**결정 내용**:
+- 거점 스태프 전용 계정/역할 없이 **seller가 허브 방문 또는 전화로 코드 확인 후 입력**
+- API: 기존 `confirmPickup`(소비자 전용) 건드리지 않고, **신규 `hub-confirm` 엔드포인트 추가**
+  - `PATCH /stores/:storeId/orders/:orderId/hub-confirm { pickupCode }`
+  - seller JWT 검증 + pickupCode 6자리 매칭 → `PICKED_UP` 전환
+- UI 흐름: `/hubs/[id]` 주문 행 클릭 → orderId 자동 전달 → `/hubs/[id]/pickup?orderId=xxx` → 6자리 입력 → 확인
+
+**이유**: 운영 거점 계약 미확정 단계에서 hub_staff 권한 구조 선제 구현은 오버엔지니어링. 소규모 협력 업체(꽃집·과일가게)에 앱 등록 강제는 진입 장벽.
+
+### Phase 2: hub_staff 역할 도입 (거점 계약 확정 후)
+
+**필요 작업**:
+- `users.role: 'hub_staff'` 신규 추가
+- `hubs.staffIds: string[]` — hub ↔ staff 관계 필드
+- seller 앱 내 스태프 초대 링크 발급 UI
+- API 미들웨어: `hub_staff` JWT 처리 + 자기 hubId 주문만 접근 스코핑
+- seller 앱 `/admin` 영역 구축 시 함께 설계
+
+**트리거**: 운영 거점 협력 업체 계약 확정 시점

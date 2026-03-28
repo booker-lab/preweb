@@ -1,17 +1,18 @@
-# Green Hub 소비자 PWA — 프로젝트 메모리
+# Green Hub — 프로젝트 메모리
 
 > **SSOT** — 세션 종료 시 항상 최신화. 200라인 초과 시 50라인 이내 요약.
 
-최종 수정: 2026-03-28 (seller 앱 /orders/[id] 주문 상세 구현 + 설계 결정 2건 확정)
+최종 수정: 2026-03-28 (seller 앱 hubs 화면 완성 + hub-confirm API 추가)
 
 ## ⚡ 다음 세션 즉시 착수 포인트
 
-**다음 세션 첫 번째 작업: `/products/new` + `/products/[id]/edit` 상품 등록·수정 폼 (seller 앱)**
+**다음 세션 첫 번째 작업: 배포 3종 → 소비자 앱 E2E 확인**
 
 착수 순서:
-1. `/products/new` + `/products/[id]/edit` — 상품 등록·수정 폼
-2. `/hubs/[id]` + `/hubs/[id]/pickup` — 거점 상세 + 픽업 코드 확인
-3. Vercel seller 배포 + Railway 재배포
+1. `firebase deploy --only firestore:indexes` (settlements·hubs 인덱스 4개)
+2. Railway 재배포 (C-1·C-2·C-3 + hub-confirm 반영)
+3. Vercel seller 신규 프로젝트 생성 (Root Directory: `apps/seller`, 환경변수 주입)
+4. 배포 후 소비자 앱 E2E 확인 (로그인 → 주문 → 결제 플로우)
 
 ---
 
@@ -20,10 +21,13 @@
 | 단계 | 내용 | 상태 |
 |------|------|------|
 | 1~14단계 | 요구사항·IA·API·배포·결제·seller 핵심화면 | ✅ |
-| 15단계 | seller 앱 미구현 화면 3종 | 🔲 진행 중 |
-| 15-1 | `/orders/[id]` 주문 상세 | ✅ 이번 세션 완료 |
-| 15-2 | `/products/new` + `/products/[id]/edit` | 🔲 다음 세션 |
-| 15-3 | `/hubs/[id]` + `/hubs/[id]/pickup` | 🔲 다음 세션 |
+| 15-1 | `/orders/[id]` 주문 상세 | ✅ |
+| 15-2 | 8차 정합성 검토 + C-1~C-3 수정 | ✅ |
+| 15-3 | `/products/new` + `/products/[id]/edit` | ✅ |
+| 15-4 | C-2·C-3 API (hub 주문 조회 + hubId 전파) | ✅ |
+| 15-5 | `/hubs/[id]` + `/hubs/[id]/pickup` + `hub-confirm` API | ✅ |
+| 16 | 배포 3종 (Firebase·Railway·Vercel seller) | 🔲 다음 세션 1순위 |
+| 17 | 소비자 앱 E2E + 결제 테스트 | 🔲 |
 
 ---
 
@@ -31,73 +35,43 @@
 
 | 항목 | 값 |
 |------|-----|
-| Railway API | `https://api-production-13e7.up.railway.app` · Online |
+| Railway API | `https://api-production-13e7.up.railway.app` · 재배포 필요 |
 | Vercel Consumer | `https://greenhubconsumer.vercel.app` · Ready |
-| Firebase | `green-e4fe3` · asia-northeast3 |
+| Vercel Seller | 미생성 — Root Directory `apps/seller` 신규 프로젝트 필요 |
+| Firebase | `green-e4fe3` · asia-northeast3 · 인덱스 배포 필요 |
 | GitHub | `booker-lab/greenhub` |
-| 모노레포 | `C:\Develop\greenhub` |
 
 ---
 
-## 이번 세션 완료 작업
+## 확정된 설계 결정 이력
 
-| 작업 | 내용 |
-|------|------|
-| `/orders/[id]` 구현 | 주문 상세 화면 신규 생성 |
-| 주문 목록 카드 클릭 연동 | orders/page.tsx → /orders/[id] 라우팅 |
-| `Order.preparedAt` 타입 추가 | packages/shared/src/order.types.ts |
-| 판매자 취소 권한 설계 확정 | DELIVERING 이전까지만 허용 |
-| BACKLOG §6 추가 | 다중 판매자 상점 페이지 Phase 2 |
-| BACKLOG §8 추가 | 거점 배송 오픈 조건·작업 목록 |
-
----
-
-## 확정된 설계 결정 (이번 세션)
-
-### 판매자 강제 취소 권한
-- **허용**: `ACCEPTED` · `CONFIRMED` · `PREPARING` → `CANCELLED`
-- **불가**: `DELIVERING` 이후 — 소비자 반품 신청 루트로만 처리
-- 근거: 발송 후 판매자 일방 취소는 표준 e-커머스에 없는 개념, 드라이버 픽업 후 상품 회수 주체 모호
-
-### 거점 배송 UI 비노출 (MVP)
-- 코드·FSM·API 전부 완성, 소비자 앱 UI만 닫음
-- 오픈 조건: 협력 업체(꽃집·과일가게) 계약 확정 시
-
-### preparedAt 기본값 분기
-- 일반 판매: `requestedDeliveryDate` (소비자 희망 배송일) 기준 09:00
-- 공동구매: `groupProductConfig.groupDeliveryDate` 기준 09:00
-
-### 상품 등록 폼 UX 구조 (다음 세션 구현)
-- **단일 페이지 스크롤 + 조건부 필드 노출** — 당근마켓 UX 스크린샷 참조 후 확정
-- 이미지 가로 썸네일·대표사진 뱃지·선택 순서 번호 차용
-- 헤더 우측 임시저장 버튼 포함
-- "판매하기/나눔하기" → "일반 판매/공동구매" 탭으로 변형
-- 공동구매 선택 시 전용 필드 슬라이드 다운 노출
-- 상세: `CRITICAL_LOGIC.md` §2026-03-28 상품 등록 폼 UX
+| 결정 | 내용 | 기록 위치 |
+|------|------|----------|
+| 판매자 취소 권한 | ACCEPTED·CONFIRMED·PREPARING만 허용 | CRITICAL_LOGIC §2026-03-28 |
+| 거점 픽업 확인 MVP | seller가 hub-confirm 엔드포인트로 코드 입력 (패턴 C) | CRITICAL_LOGIC §2026-03-28 |
+| hub_staff 역할 | Phase 2 — 거점 계약 확정 후 도입 (BACKLOG §1-9) | CRITICAL_LOGIC §2026-03-28 |
+| 상품 등록 폼 UX | 단일 스크롤 + 조건부 공동구매 필드 슬라이드 다운 | CRITICAL_LOGIC §2026-03-28 |
+| deliveryFeeDiscount | MVP 폼에서 숨김, 0 고정 | CRITICAL_LOGIC §2026-03-28 |
+| hub 주문 쿼리 전략 | hubId 단일 필드 쿼리 + status 앱 레이어 필터 | CRITICAL_LOGIC §2026-03-28 |
 
 ---
 
-## seller 앱 현재 구조
+## seller 앱 구조
 
 ```
 apps/seller/src/app/
-├── login/               ✅
-├── onboarding/          ✅
-├── orders/
-│   ├── page.tsx         ✅ 목록 + 카드 클릭 라우팅
-│   └── [id]/page.tsx    ✅ 주문 상세 (이번 세션)
-├── products/            ✅ 목록 (등록·수정 폼 미구현)
-├── settlements/         ✅
-├── hubs/                ✅ + hubs/new (상세·픽업 미구현)
-└── settings/            ✅
+├── orders/ [id]/                ✅ 주문 상세 + 강제취소
+├── products/ new/ [id]/edit/    ✅ 등록·수정 폼
+├── hubs/ [id]/ pickup/          ✅ 거점 상세 + 픽업 코드 확인
+└── settlements/ settings/       ✅
 ```
 
 ---
 
 ## 기술 특이사항
 
-- Next.js 16 Turbopack → `--webpack` 플래그 필수
-- `proxy.ts` (구 `middleware.ts`) — Next.js 16 파일명
-- seller 개발 서버: `pnpm --filter seller dev` → `http://localhost:3001`
-- settlements·hubs Firestore 복합 인덱스 → git 추가 완료, `firebase deploy` 미실행
-- Vercel seller 배포 미완료 (`apps/seller` Root Directory로 신규 프로젝트 생성 필요)
+- **로컬 실행**: `dev-local.bat` (API+Consumer) / `dev-local-all.bat` (전체 3개)
+- seller 개발 서버: `pnpm --filter seller dev -- --port 3002`
+- Vercel seller 환경변수: `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_FIREBASE_*`
+- Railway `CORS_ORIGIN`에 seller Vercel URL 추가 필요
+- Firestore 인덱스: settlements·hubs 4개 — `firebase deploy` 미실행 상태

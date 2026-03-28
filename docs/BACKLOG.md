@@ -1,6 +1,6 @@
 # Green Hub — 앞으로 할 작업 백로그
 
-> 기준일: 2026-03-28 (7차 정합성 검토 + seller 앱 핵심 화면 완료 시점)
+> 기준일: 2026-03-28 (8차 정합성 검토 + C-1~C-3 수정 + /products 폼 + C-2·C-3 API 완료 시점)
 > 완료 작업 전체 이력은 `CRITICAL_LOGIC.md`, `memory.md` 참조
 
 ---
@@ -9,15 +9,13 @@
 
 | 순위 | 항목 | 범주 |
 |------|------|------|
-| ⭐ 1 | `/orders/[id]` 주문 상세 화면 | seller 앱 |
-| ⭐ 2 | `/products/new` + `/products/[id]/edit` 상품 등록·수정 | seller 앱 |
-| ⭐ 3 | `/hubs/[id]` 거점 상세 + `/hubs/[id]/pickup` 픽업 코드 확인 | seller 앱 |
-| ⭐ 4 | Vercel seller 배포 + Railway CORS 업데이트 | 인프라 |
-| 🟡 5 | `/admin/*` 관리자 영역 5개 페이지 | seller 앱 |
-| 🟡 6 | 소비자 앱 Phase B (마이페이지 서브 화면) | consumer 앱 |
-| 🟡 7 | 네이버페이 파트너 가입 | 외부 연동 |
-| 💡 8 | 카드 결제 PG사 계약 | 외부 연동 |
-| 🔵 9 | 다중 판매자 상점 페이지 (소비자 앱) | Phase 2 |
+| ⭐ 1 | `/hubs/[id]` 거점 상세 + `/hubs/[id]/pickup` 픽업 코드 확인 | seller 앱 |
+| ⭐ 2 | Vercel seller 배포 + Firebase 인덱스 배포 + Railway 재배포 | 인프라 |
+| 🟡 3 | `/admin/*` 관리자 영역 5개 페이지 | seller 앱 |
+| 🟡 4 | 소비자 앱 Phase B (마이페이지 서브 화면) | consumer 앱 |
+| 🟡 5 | 네이버페이 파트너 가입 | 외부 연동 |
+| 💡 6 | 카드 결제 PG사 계약 | 외부 연동 |
+| 🔵 7 | 다중 판매자 상점 페이지 (소비자 앱) | Phase 2 |
 
 ---
 
@@ -35,6 +33,7 @@
 - [x] Tailwind CSS + 하단 탭 5개 (`BottomNav.tsx`)
 - [x] `proxy.ts` — 미로그인→/login, storeId 없음→/onboarding
 - [x] `src/lib/api.ts` — `apiFetch` 헬퍼 (Bearer 토큰 자동 주입)
+- [x] `src/lib/firebase.ts` — Firestore + Storage export
 
 ### 1-2. 인증 / 온보딩
 
@@ -47,8 +46,8 @@
 - [x] Firestore 실시간 리스너 기반 주문 목록
 - [x] 상태별 탭 5종 + 배지
 - [x] 주문 카드 — 결제금액, 배송수단, 주문시각
-- [ ] **`/orders/[id]` 주문 상세 ← 1순위**
-  - 상품명·수량·금액·배송 정보 표시
+- [x] `/orders/[id]` 주문 상세
+  - 상품·수량·금액·배송 정보 표시
   - "준비 시작" 버튼 (preparedAt datetime 입력) → `PATCH .../status { PREPARING }`
   - "강제 취소" 모달 (사유 최소 5자) → `PATCH .../status { CANCELLED }`
   - 읽기 전용 상태 (배송 중 이후)
@@ -57,14 +56,14 @@
 
 - [x] 상품 목록 — Firestore 실시간 리스너
 - [x] 활성/비활성 토글
-- [ ] **`/products/new` 상품 등록 폼 ← 2순위**
-  - 판매 방식 선택 탭 (일반 / 공동구매)
-  - 공통 필드: 상품명·가격·카테고리·색상(멀티)·배송사이즈·이미지(최대 5장)
-  - 공동구매 전용: 최소·최대 인원, 모집 마감일, 배송 예정일, 배송 수단
-  - `POST /stores/:storeId/products`
-- [ ] **`/products/[id]/edit` 상품 수정 ← 2순위**
+- [x] `/products/new` 상품 등록 폼
+  - 이미지 최대 5장 (Firebase Storage 업로드, 대표사진 뱃지, 순서 번호)
+  - 상품명·카테고리·색상(멀티)·배송사이즈·가격·상세설명
+  - 판매 방식 라디오 (일반/공동구매) + 공동구매 전용 필드 슬라이드 다운
+  - 헤더 우측 임시저장 버튼 (localStorage)
+- [x] `/products/[id]/edit` 상품 수정
   - `GET /stores/:storeId/products/:id` 로드 후 폼 pre-fill
-  - `PATCH /stores/:storeId/products/:id`
+  - Firestore Timestamp → YYYY-MM-DD 변환
 - [ ] 상품 삭제 버튼 (`DELETE /stores/:storeId/products/:id`)
 
 ### 1-5. 정산 관리 (`/settlements`)
@@ -80,13 +79,15 @@
 - [x] 활성/비활성 토글 — `PATCH .../hubs/:hubId`
 - [x] 삭제 — `DELETE .../hubs/:hubId`
 - [x] `/hubs/new` 거점 등록 폼 — `POST .../hubs`
-- [ ] **`/hubs/[id]` 거점 상세 ← 3순위**
-  - 픽업 대기 주문 목록 (status: HUB_ARRIVED, 해당 hubId 필터)
-  - 주문 행 클릭 → 픽업 코드 확인으로 이동
-- [ ] **`/hubs/[id]/pickup` 픽업 코드 확인 ← 3순위**
-  - 6자리 수동 입력 UI (각 자리 분리)
-  - (Nice to Have) 바코드 스캔
-  - `PATCH .../orders/:orderId/pickup-confirm { pickupCode }`
+- [x] **`/hubs/[id]` 거점 상세**
+  - 거점 정보 (이름·주소·운영시간)
+  - 픽업 대기 주문 목록 (`status: HUB_ARRIVED`, `hubId` 필터)
+  - 주문 행 클릭 → `/hubs/[id]/pickup?orderId=` 자동 전달
+- [x] **`/hubs/[id]/pickup` 픽업 코드 확인**
+  - orderId 쿼리 파라미터 수신
+  - 6자리 분리 입력 UI (붙여넣기 지원)
+  - `PATCH .../orders/:orderId/hub-confirm { pickupCode }` (seller JWT)
+  - 성공 시 PICKED_UP 전환 + 완료 피드백 화면
 
 ### 1-7. 설정 (`/settings`)
 
@@ -104,22 +105,51 @@
 - [ ] `/admin/settlements` — 판매자별 정산 처리 (이체 완료)
 - [ ] `/admin/invite` — 초대 토큰 발급
 
+### 1-9. 거점 스태프 권한 구조 — Phase 2 (운영 거점 계약 확정 후)
+
+> **MVP 결정**: seller가 직접 `/hubs/[id]/pickup`에서 코드 입력 확인 (패턴 C)
+> **Phase 2 트리거**: 협력 업체(꽃집·과일가게 등) 계약 확정 시
+> 설계 결정 상세: `CRITICAL_LOGIC.md` §2026-03-28 거점 픽업 확인 방식
+
+- [ ] `users.role: 'hub_staff'` 신규 역할 추가
+- [ ] `hubs.staffIds: string[]` 관계 필드 + Firestore 스키마 반영
+- [ ] seller 앱 스태프 초대 링크 발급 UI (`/hubs/[id]/settings`)
+- [ ] API: `hub_staff` JWT 처리 + hubId 스코핑 미들웨어
+- [ ] hub_staff 전용 온보딩 플로우 (seller 앱 내 분기)
+- [ ] `/admin` 영역 구축 시 함께 설계 (§1-8과 병행)
+
 ---
 
 ## 2. API (`apps/api`)
 
-### 완료된 신규 모듈 (이번 세션)
+### 완료된 모든 엔드포인트
 
-- [x] `PATCH /stores/:storeId` — 판매자 온보딩 프로필 저장 (소유권 Guard + 온보딩 완료 자동 active)
-- [x] settlements 모듈 — `GET .../settlements?from=&to=`, `GET .../settlements/summary?date=`
-- [x] settlements 자동 생성 트리거 — REVIEWED / DELIVERED / PICKED_UP 시
-- [x] hubs 모듈 — CRUD `GET/POST/PATCH/DELETE /stores/:storeId/hubs`
-- [x] `firestore.indexes.json` — settlements(storeId+settledAt), hubs(storeId+createdAt) 인덱스 추가
+- [x] auth 모듈 (Firebase ID token 검증 → JWT 발급)
+- [x] stores — `PATCH /stores/:storeId` (온보딩 + active 전환)
+- [x] products — `GET/POST/PATCH/DELETE /stores/:storeId/products`
+- [x] products — daily-caps, delivery-config CRUD
+- [x] orders — `POST/GET/PATCH /stores/:storeId/orders`
+- [x] orders — `status`, `cancel`, `review`, `pickup-confirm`
+- [x] settlements — `GET .../settlements`, `GET .../settlements/summary`
+- [x] hubs — `GET/POST/PATCH/DELETE /stores/:storeId/hubs`
+- [x] **`GET /stores/:storeId/hubs/:hubId/orders?status=` (C-2 완료)**
+- [x] notifications 모듈
+
+### 8차 정합성 검토 수정 사항 (이번 세션)
+
+- [x] **C-1**: `SELLER_TRANSITIONS` DELIVERING·HUB_ARRIVED 취소 허용 제거
+- [x] **C-1**: `getAllowedTransitions` 화이트리스트 방식으로 교체 (`ACCEPTED·CONFIRMED·PREPARING`만)
+- [x] **C-3**: `CreateOrderDto.hubId?: string` + hub 배송 시 필수 검증
+- [x] **C-3**: `createOrder` — 주문 문서에 `hubId` 저장
+- [x] **shared**: `Order.hubId: string | null`, `CreateOrderRequest.hubId?: string` 추가
+
+### 이번 세션 추가 완료
+
+- [x] **hub-confirm**: `PATCH /stores/:storeId/orders/:orderId/hub-confirm` — seller JWT + pickupCode 검증 → PICKED_UP
 
 ### 미구현 API
 
-- [ ] 거점 픽업 대기 주문 조회 — `GET /stores/:storeId/hubs/:hubId/orders?status=HUB_ARRIVED`
-- [ ] settlements 취소 반영 — 주문 CANCELLED 시 `status: 'cancelled'` 업데이트 (orders.service.ts cancelOrder/updateStatus)
+- [ ] settlements 취소 반영 — 주문 CANCELLED 시 `status: 'cancelled'` 업데이트
 - [ ] 관리자 API (`/admin/*`) — stores·users·orders·settlements CRUD
 
 ---
@@ -162,12 +192,12 @@
 ### 5-2. Vercel seller 배포
 
 - [ ] Vercel 새 프로젝트 생성 (Root Directory: `apps/seller`)
-- [ ] 환경변수: `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `NEXT_PUBLIC_API_URL`, Firebase 설정
+- [ ] 환경변수: `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `NEXT_PUBLIC_API_URL`, Firebase 설정 (`NEXT_PUBLIC_FIREBASE_*`)
 - [ ] Railway `CORS_ORIGIN`에 seller Vercel URL 추가
 
 ### 5-3. Railway API 재배포
 
-- [ ] 신규 모듈(stores·settlements·hubs) 반영 배포
+- [ ] 이번 세션 변경사항(C-1·C-2·C-3) 반영 배포
 
 ---
 
@@ -185,18 +215,10 @@
 - [ ] `app/stores/page.tsx` — 상점 목록 (카드 그리드: 로고·상호명·거점 수·판매 상품 수)
 - [ ] `app/stores/[storeId]/page.tsx` — 상점 상세 (프로필 + 판매 상품 + 운영 거점 목록)
 - [ ] 홈 화면 하드코딩 `STORE_ID = 'dear-orchid'` → 동적 `storeId` 처리로 전환
-  - 수정 파일: `app/products/[id]/page.tsx`, `app/checkout/page.tsx`, `hooks/usePayment.ts`
 
 ### 6-3. 판매자 앱 연동 포인트
 
-> **추가 개발 불필요** — 판매자 온보딩 시 입력한 `name·address·phone·logoUrl`이 이미 Firestore `stores` 컬렉션에 저장됨. 소비자 앱이 `GET /stores/:storeId` 로 그대로 읽어 노출.
-
-### 6-4. 확장 시 상점 상세 페이지 구성 요소
-
-- 상점명·대표자·소개·로고·주소
-- 운영 거점(hubs) 목록
-- 판매 중인 상품 목록
-- 공동구매 진행 현황
+> **추가 개발 불필요** — 판매자 온보딩 시 입력한 `name·address·phone·logoUrl`이 이미 Firestore `stores` 컬렉션에 저장됨.
 
 ---
 
@@ -221,9 +243,10 @@
 
 ### 이미 완료된 것 (추가 개발 불필요)
 
-- `deliveryMethod: 'hub'` 타입·스키마·API 전체
+- `deliveryMethod: 'hub'`, `hubId` 타입·스키마·API 전체
 - 주문 상태 `HUB_ARRIVED` · `PICKED_UP` FSM
 - `pickupCode` 6자리 발급·저장·확인 (`PATCH .../pickup-confirm`)
+- `GET /stores/:storeId/hubs/:hubId/orders?status=HUB_ARRIVED` API
 - seller 앱 거점 CRUD (`/hubs`, `/hubs/new`)
 - 알림톡 발송 트리거 (`DELIVERING → HUB_ARRIVED` 시 픽업 코드 안내)
 
@@ -231,8 +254,7 @@
 
 - [ ] 협력 업체를 seller 앱 `/hubs`에서 거점으로 등록
 - [ ] 소비자 앱 배송 수단 선택 화면에서 `hub` 옵션 노출 조건 해제
-- [ ] seller 앱 `/hubs/[id]` 거점 상세 + `/hubs/[id]/pickup` 픽업 코드 확인 화면 구현 (현재 3순위 백로그)
-- [ ] API `GET /stores/:storeId/hubs/:hubId/orders?status=HUB_ARRIVED` 구현
+- [ ] seller 앱 `/hubs/[id]` 거점 상세 + `/hubs/[id]/pickup` 픽업 코드 확인 화면 구현 (현재 1순위 백로그)
 
 ### Phase 2 고도화 (계약 후 운영 안정화 시점)
 
@@ -245,8 +267,8 @@
 
 | 날짜 | 내용 |
 |------|------|
-| 2026-03-28 | 초안 작성 — 5차 정합성 검토 완료 시점 |
+| 2026-03-28 | 초안 작성 |
 | 2026-03-28 | seller 앱 스캐폴딩 + Firestore 연동 완료 체크 |
 | 2026-03-28 | stores·settlements·hubs API + seller 앱 핵심 화면 완료 체크 / 7차 정합성 검토 반영 |
-| 2026-03-28 | 다중 판매자 상점 페이지 Phase 2 항목 추가 (§6) |
-| 2026-03-28 | 거점 배송 오픈 조건·작업 목록 상세 기록 (§8) |
+| 2026-03-28 | 다중 판매자 §6 추가, 거점 배송 §8 추가 |
+| 2026-03-28 | **8차 정합성 검토**: C-1~C-3 수정 완료, /products 폼 구현 완료, 우선순위 재정비 |
